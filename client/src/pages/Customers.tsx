@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Customer } from '../types';
+import Snackbar from '@mui/material/Snackbar';
+import MuiAlert from '@mui/material/Alert';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import {
   Container,
   TextField,
@@ -16,7 +22,11 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TableRow
+  TableRow,
+  Grid,
+  CircularProgress,
+  Backdrop,
+  SelectChangeEvent
 } from '@mui/material';
 
 const statusOptions = [
@@ -39,24 +49,33 @@ const Customers: React.FC = () => {
     notes: ''
   });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Snackbar and dialog state
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMsg, setSnackbarMsg] = useState('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
 
   useEffect(() => {
+    setLoading(true);
     fetch('/api/customers')
       .then(res => res.json())
-      .then(data => setCustomers(data));
+      .then(data => setCustomers(data))
+      .finally(() => setLoading(false));
   }, []);
 
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
-    const name = (e.target as HTMLInputElement).name;
-    const value = (e.target as HTMLInputElement).value;
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
     setForm({ ...form, [name]: value });
   };
 
-  const handleStatusChange = (e: React.ChangeEvent<{ value: unknown }>) => {
-    setForm({ ...form, status: e.target.value as string });
+  const handleStatusChange = (e: SelectChangeEvent) => {
+    setForm({ ...form, status: e.target.value });
   };
 
   const handleAddCustomer = async (formData: Omit<Customer, 'id'>) => {
+    setLoading(true);
     const res = await fetch('/api/customers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -64,9 +83,13 @@ const Customers: React.FC = () => {
     });
     const newCustomer = await res.json();
     setCustomers(prev => [...prev, newCustomer]);
+    setLoading(false);
+    setSnackbarMsg('Customer added successfully!');
+    setSnackbarOpen(true);
   };
 
   const handleEditCustomer = async (id: string, formData: Omit<Customer, 'id'>) => {
+    setLoading(true);
     const res = await fetch(`/api/customers/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -76,14 +99,28 @@ const Customers: React.FC = () => {
     setCustomers(prev =>
       prev.map(c => (c.id === id ? updatedCustomer : c))
     );
+    setLoading(false);
+    setSnackbarMsg('Customer updated successfully!');
+    setSnackbarOpen(true);
   };
 
-  const handleDeleteCustomer = async (id: string) => {
-    await fetch(`/api/customers/${id}`, {
-      method: 'DELETE',
-    });
-    setCustomers(prev => prev.filter(c => c.id !== id));
-    if (editingId === id) {
+  const handleDeleteClick = (customer: Customer) => {
+    setCustomerToDelete(customer);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteCustomer = async () => {
+    if (!customerToDelete) return;
+    setLoading(true);
+    await fetch(`/api/customers/${customerToDelete.id}`, { method: 'DELETE' });
+    setCustomers(prev => prev.filter(c => c.id !== customerToDelete.id));
+    setLoading(false);
+    setDeleteDialogOpen(false);
+    setSnackbarMsg(`Customer "${customerToDelete.firstName} ${customerToDelete.lastName}" deleted.`);
+    setSnackbarOpen(true);
+    setCustomerToDelete(null);
+    // If editing the deleted customer, reset form
+    if (editingId === customerToDelete.id) {
       setEditingId(null);
       resetForm();
     }
@@ -128,85 +165,112 @@ const Customers: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4 }}>
-      <Paper sx={{ p: 3, mb: 4 }}>
+    <Container maxWidth="lg" sx={{ mt: 4 }}>
+      <Backdrop open={loading} sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}>
+        <CircularProgress color="inherit" />
+      </Backdrop>
+      <Paper sx={{ p: 4, mb: 4, maxWidth: "lg", mx: "auto", backgroundColor: '#f5f5f5' }}>
         <Typography variant="h5" gutterBottom>
           {editingId ? 'Edit Customer' : 'Add Customer'}
         </Typography>
-        <Box component="form" onSubmit={handleFormSubmit} sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-          <TextField
-            name="firstName"
-            label="First Name"
-            value={form.firstName}
-            onChange={handleFormChange}
-            required
-            sx={{ flex: 1 }}
-          />
-          <TextField
-            name="lastName"
-            label="Last Name"
-            value={form.lastName}
-            onChange={handleFormChange}
-            required
-            sx={{ flex: 1 }}
-          />
-          <TextField
-            name="email"
-            label="Email"
-            value={form.email}
-            onChange={handleFormChange}
-            required
-            sx={{ flex: 1 }}
-          />
-          <TextField
-            name="phone"
-            label="Phone"
-            value={form.phone}
-            onChange={handleFormChange}
-            required
-            sx={{ flex: 1 }}
-          />
-          <TextField
-            name="company"
-            label="Company"
-            value={form.company}
-            onChange={handleFormChange}
-            required
-            sx={{ flex: 1 }}
-          />
-          <FormControl required sx={{ flex: 1, minWidth: 120 }}>
-            <InputLabel>Status</InputLabel>
-            <Select
-              name="status"
-              value={form.status}
-              label="Status"
-              onChange={handleStatusChange}
-            >
-              {statusOptions.map(option => (
-                <MenuItem key={option} value={option}>{option.charAt(0).toUpperCase() + option.slice(1)}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <TextField
-            name="source"
-            label="Source"
-            value={form.source}
-            onChange={handleFormChange}
-            required
-            sx={{ flex: 1 }}
-          />
-          <TextField
-            name="notes"
-            label="Notes"
-            value={form.notes}
-            onChange={handleFormChange}
-            sx={{ flex: 2 }}
-          />
-          <Box sx={{ display: 'flex', gap: 2, width: '100%' }}>
-            <Button type="submit" variant="contained" color="primary">
-              {editingId ? 'Update Customer' : 'Add Customer'}
-            </Button>
-            {editingId && (
+        <Box component="form" onSubmit={handleFormSubmit} sx={{ flexGrow: 1, width: '100%' }}>
+          <Grid container spacing={5}>
+            {/* Row 1 */}
+            <Grid item xs={12} sm={6}>
+              <TextField
+                name="firstName"
+                label="First Name"
+                value={form.firstName}
+                onChange={handleFormChange}
+                required
+                fullWidth
+                sx={{ minWidth: 250 }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                name="lastName"
+                label="Last Name"
+                value={form.lastName}
+                onChange={handleFormChange}
+                required
+                fullWidth
+                sx={{ minWidth: 250 }}
+              />
+            </Grid>
+            {/* Row 2 */}
+            <Grid item xs={12} sm={6}>
+              <TextField
+                name="phone"
+                label="Phone"
+                value={form.phone}
+                onChange={handleFormChange}
+                required
+                fullWidth
+                sx={{ minWidth: 250 }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                name="email"
+                label="Email"
+                value={form.email}
+                onChange={handleFormChange}
+                required
+                fullWidth
+                sx={{ minWidth: 250 }}
+              />
+            </Grid>
+            {/* Row 3 */}
+            <Grid item xs={12} sm={6}>
+              <FormControl required fullWidth>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  name="status"
+                  value={form.status}
+                  label="Status"
+                  onChange={handleStatusChange}
+                  required
+                  fullWidth
+                  sx={{ minWidth: 250 }}
+                >
+                  {statusOptions.map(option => (
+                    <MenuItem key={option} value={option}>
+                      {option.charAt(0).toUpperCase() + option.slice(1)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                name="source"
+                label="Source"
+                value={form.source}
+                onChange={handleFormChange}
+                required
+                fullWidth
+                sx={{ minWidth: 250 }}
+              />
+            </Grid>
+            {/* Row 4 */}
+            <Grid item xs={12}>
+              <TextField
+                name="notes"
+                label="Notes"
+                value={form.notes}
+                onChange={handleFormChange}
+                fullWidth
+                multiline
+                minRows={2}
+                sx={{ minWidth: 250 }}
+              />
+            </Grid>
+            {/* Buttons */}
+            <Grid item xs={12} sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+              <Button type="submit" variant="contained" color="primary">
+                {editingId ? 'Update Customer' : 'Add Customer'}
+              </Button>
               <Button
                 type="button"
                 variant="outlined"
@@ -214,12 +278,11 @@ const Customers: React.FC = () => {
                 onClick={() => {
                   setEditingId(null);
                   resetForm();
-                }}
-              >
+                }}>
                 Cancel
               </Button>
-            )}
-          </Box>
+            </Grid>
+          </Grid>
         </Box>
       </Paper>
       <TableContainer component={Paper}>
@@ -248,13 +311,45 @@ const Customers: React.FC = () => {
                 <TableCell>{customer.notes}</TableCell>
                 <TableCell>
                   <Button size="small" onClick={() => handleEditClick(customer)}>Edit</Button>
-                  <Button size="small" color="error" onClick={() => handleDeleteCustomer(customer.id)}>Delete</Button>
+                  <Button size="small" color="error" onClick={() => handleDeleteClick(customer)}>
+                    Delete
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </TableContainer>
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <MuiAlert onClose={() => setSnackbarOpen(false)} severity="success" sx={{ width: '100%' }}>
+          {snackbarMsg}
+        </MuiAlert>
+      </Snackbar>
+      {/* Delete Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogContent>
+          Are you sure you want to delete customer{' '}
+          <b>
+            {customerToDelete?.firstName} {customerToDelete?.lastName}
+          </b>
+          ?
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)} color="primary">
+            Back
+          </Button>
+          <Button onClick={handleDeleteCustomer} color="error" variant="contained">
+            Yes
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };
