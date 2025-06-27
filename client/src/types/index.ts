@@ -22,3 +22,13 @@ export interface CustomerFormData {
   source: string;
   notes: string;
 }
+
+export interface User {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: string;
+  status: 'active' | 'inactive';
+  // Add more fields as needed
+}

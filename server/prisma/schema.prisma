@@ -14,6 +14,7 @@ model User {
   lastName  String
   role      String
   password  String
+  status    String @default("active")
 }
 
 model Customer {
