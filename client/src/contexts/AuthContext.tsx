@@ -74,6 +74,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
+    window.location.href = '/login'; // <-- This ensures redirect!
   };
 
   const value = {
