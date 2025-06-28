@@ -1,14 +1,21 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
+import { authenticateToken, requirePermission, requireTenantAccess } from '../middleware/auth';
+import { PERMISSIONS } from '../utils/permissions';
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// GET all customers
-router.get('/', async (req, res) => {
+// GET all customers (tenant-filtered, but SYSTEM_ADMIN sees all)
+router.get('/', authenticateToken, requirePermission(PERMISSIONS.CUSTOMERS_READ), async (req, res) => {
   try {
     const { status, search } = req.query;
     const where: any = {};
+    
+    // SYSTEM_ADMIN can see all customers, others are filtered by tenant
+    if (req.user.role !== 'SYSTEM_ADMIN') {
+      where.tenantId = req.user.tenantId;
+    }
     
     if (status && status !== 'all') {
       where.status = status;
@@ -24,7 +31,14 @@ router.get('/', async (req, res) => {
       ];
     }
     
-    const customers = await prisma.customer.findMany({ where });
+    const customers = await prisma.customer.findMany({ 
+      where,
+      include: {
+        tenant: {
+          select: { name: true }
+        }
+      }
+    });
     res.json(customers);
   } catch (error) {
     console.error('Error fetching customers:', error);
@@ -33,10 +47,15 @@ router.get('/', async (req, res) => {
 });
 
 // GET single customer
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticateToken, requirePermission(PERMISSIONS.CUSTOMERS_READ), requireTenantAccess('customer'), async (req, res) => {
   try {
     const customer = await prisma.customer.findUnique({
-      where: { id: req.params.id }
+      where: { id: req.params.id },
+      include: {
+        tenant: {
+          select: { name: true }
+        }
+      }
     });
     
     if (!customer) {
@@ -51,7 +70,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST new customer
-router.post('/', async (req, res) => {
+router.post('/', authenticateToken, requirePermission(PERMISSIONS.CUSTOMERS_WRITE), async (req, res) => {
   try {
     const {
       firstName,
@@ -71,9 +90,12 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Check if customer with same email already exists
+    // Check if customer with same email already exists in the same tenant
     const existingCustomer = await prisma.customer.findFirst({
-      where: { email: email.toLowerCase() }
+      where: { 
+        email: email.toLowerCase(),
+        tenantId: req.user.tenantId
+      }
     });
     
     if (existingCustomer) {
@@ -89,7 +111,13 @@ router.post('/', async (req, res) => {
         company: company || '',
         status,
         source: source || '',
-        notes: notes || ''
+        notes: notes || '',
+        tenantId: req.user.tenantId // Automatically assign to user's tenant
+      },
+      include: {
+        tenant: {
+          select: { name: true }
+        }
       }
     });
 
@@ -101,7 +129,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT update customer
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticateToken, requirePermission(PERMISSIONS.CUSTOMERS_WRITE), requireTenantAccess('customer'), async (req, res) => {
   try {
     const {
       firstName,
@@ -121,10 +149,11 @@ router.put('/:id', async (req, res) => {
       });
     }
 
-    // Check if customer with same email already exists (excluding current customer)
+    // Check if customer with same email already exists in the same tenant (excluding current customer)
     const existingCustomer = await prisma.customer.findFirst({
       where: { 
         email: email.toLowerCase(),
+        tenantId: req.user.tenantId,
         id: { not: req.params.id }
       }
     });
@@ -144,6 +173,11 @@ router.put('/:id', async (req, res) => {
         status: status || 'lead',
         source: source || '',
         notes: notes || ''
+      },
+      include: {
+        tenant: {
+          select: { name: true }
+        }
       }
     });
 
@@ -155,7 +189,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // DELETE customer
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticateToken, requirePermission(PERMISSIONS.CUSTOMERS_DELETE), requireTenantAccess('customer'), async (req, res) => {
   try {
     // Check if customer has associated deals
     const hasDeals = await prisma.deal.findFirst({

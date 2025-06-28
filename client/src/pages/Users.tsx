@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '../types';
+import { apiClient } from '../utils/api';
 import {
   Container, Paper, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem, FormControl, InputLabel, Snackbar, Alert,
-  Chip
+  Chip, IconButton, Tooltip, TextField as MuiTextField, Grid, Card, CardContent, CardHeader, LinearProgress, CircularProgress
 } from '@mui/material';
+import {
+  Add, Edit, Delete, Visibility, Search, Refresh, Person, Email, Business, 
+  CheckCircle, Warning, Error, Info, AdminPanelSettings, SupervisorAccount, Support
+} from '@mui/icons-material';
 
-const roleOptions = ['admin', 'manager', 'sales', 'support'];
+const roleOptions = ['SYSTEM_ADMIN', 'HQ_ADMIN', 'SALES_MANAGER', 'SALES_REP'];
 const statusOptions = ['active', 'inactive'];
 
 const Users: React.FC = () => {
@@ -20,7 +25,7 @@ const Users: React.FC = () => {
     firstName: '',
     lastName: '',
     email: '',
-    role: 'sales' as const,
+    role: 'SALES_REP' as const,
     status: 'active' as const,
     password: ''
   });
@@ -34,11 +39,7 @@ const Users: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('/api/users');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
+      const data = await apiClient.get<User[]>('/api/users');
       setUsers(data);
     } catch (err) {
       console.error('Error fetching users:', err);
@@ -52,54 +53,36 @@ const Users: React.FC = () => {
     fetchUsers();
   }, []);
 
-  // Handle opening dialogs
-  const handleOpenDialog = (mode: 'view' | 'edit' | 'add', user?: User) => {
+  const handleOpen = (mode: 'view' | 'edit' | 'add', user?: User) => {
     setDialogMode(mode);
     setSelectedUser(user || null);
     
-    if (mode === 'view' && user) {
-      setForm({
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        role: user.role,
-        status: user.status,
-        password: '' // Don't show password in view mode
-      });
-      setOpen(true);
-    } else if (mode === 'edit' && user) {
-      setForm({
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        role: user.role,
-        status: user.status,
-        password: '' // Don't prefill password for security
-      });
-      setOpen(true);
-    } else if (mode === 'add') {
+    if (mode === 'add') {
       setForm({
         firstName: '',
         lastName: '',
         email: '',
-        role: 'sales',
+        role: 'SALES_REP',
         status: 'active',
         password: ''
       });
-      setOpen(true);
+    } else if (user) {
+      setForm({
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+        password: ''
+      });
     }
+    
+    setOpen(true);
   };
 
   const handleClose = () => {
     setOpen(false);
     setSelectedUser(null);
-    setDialogMode('add');
-  };
-
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
-    const name = (e.target as HTMLInputElement).name;
-    const value = (e.target as HTMLInputElement).value;
-    setForm({ ...form, [name]: value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -107,37 +90,22 @@ const Users: React.FC = () => {
 
     try {
       if (dialogMode === 'edit' && selectedUser) {
-        const res = await fetch(`/api/users/${selectedUser.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form)
-        });
-        if (res.ok) {
-          setSnackbar({ open: true, message: 'User updated successfully!', severity: 'success' });
-          fetchUsers();
-          handleClose();
-        } else {
-          const errorData = await res.json();
-          setSnackbar({ open: true, message: `Failed to update user: ${errorData.error}`, severity: 'error' });
-        }
+        await apiClient.put(`/api/users/${selectedUser.id}`, form);
+        setSnackbar({ open: true, message: 'User updated successfully!', severity: 'success' });
       } else if (dialogMode === 'add') {
-        const res = await fetch('/api/users', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form)
-        });
-        if (res.ok) {
-          setSnackbar({ open: true, message: 'User added successfully!', severity: 'success' });
-          fetchUsers();
-          handleClose();
-        } else {
-          const errorData = await res.json();
-          setSnackbar({ open: true, message: `Failed to add user: ${errorData.error}`, severity: 'error' });
-        }
+        await apiClient.post('/api/users', form);
+        setSnackbar({ open: true, message: 'User added successfully!', severity: 'success' });
       }
+      
+      fetchUsers();
+      handleClose();
     } catch (error) {
       console.error('Error submitting user:', error);
-      setSnackbar({ open: true, message: 'An error occurred while saving the user.', severity: 'error' });
+      setSnackbar({ 
+        open: true, 
+        message: error instanceof Error ? error.message : 'An error occurred while saving the user.', 
+        severity: 'error' 
+      });
     }
   };
 
@@ -145,16 +113,16 @@ const Users: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
     
     try {
-      const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setSnackbar({ open: true, message: 'User deleted successfully!', severity: 'success' });
-        fetchUsers();
-      } else {
-        setSnackbar({ open: true, message: 'Failed to delete user.', severity: 'error' });
-      }
+      await apiClient.delete(`/api/users/${id}`);
+      setSnackbar({ open: true, message: 'User deleted successfully!', severity: 'success' });
+      fetchUsers();
     } catch (error) {
       console.error('Error deleting user:', error);
-      setSnackbar({ open: true, message: 'An error occurred while deleting the user.', severity: 'error' });
+      setSnackbar({ 
+        open: true, 
+        message: error instanceof Error ? error.message : 'Failed to delete user.', 
+        severity: 'error' 
+      });
     }
   };
 
@@ -163,9 +131,8 @@ const Users: React.FC = () => {
     const searchLower = search.toLowerCase();
     const nameMatch = `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchLower);
     const emailMatch = user.email.toLowerCase().includes(searchLower);
-    const roleMatch = user.role.toLowerCase().includes(searchLower);
     
-    return nameMatch || emailMatch || roleMatch;
+    return nameMatch || emailMatch;
   });
 
   const sortedUsers = [...filteredUsers].sort((a, b) => {
@@ -190,27 +157,30 @@ const Users: React.FC = () => {
   // Get role color
   const getRoleColor = (role: string) => {
     switch (role) {
-      case 'admin': return '#f44336';
-      case 'manager': return '#ff9800';
-      case 'sales': return '#2196f3';
-      case 'support': return '#4caf50';
-      default: return '#757575';
+      case 'SYSTEM_ADMIN': return 'error';
+      case 'HQ_ADMIN': return 'warning';
+      case 'SALES_MANAGER': return 'info';
+      case 'SALES_REP': return 'success';
+      default: return 'default';
     }
   };
 
   // Get status color
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return '#4caf50';
-      case 'inactive': return '#f44336';
-      default: return '#757575';
+      case 'active': return 'success';
+      case 'inactive': return 'error';
+      default: return 'default';
     }
   };
 
   if (loading) {
     return (
       <Container maxWidth="xl" sx={{ mt: 4 }}>
-        <Typography>Loading users...</Typography>
+        <LinearProgress />
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+          <CircularProgress />
+        </Box>
       </Container>
     );
   }
@@ -218,276 +188,383 @@ const Users: React.FC = () => {
   if (error) {
     return (
       <Container maxWidth="xl" sx={{ mt: 4 }}>
-        <Typography color="error">Error: {error}</Typography>
-        <Button onClick={fetchUsers} sx={{ mt: 2 }}>Retry</Button>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+        <Button onClick={fetchUsers} variant="contained">
+          Retry
+        </Button>
       </Container>
     );
   }
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4 }}>
-      <Paper sx={{ p: 3, mb: 4 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="h5">Users ({filteredUsers.length} of {users.length})</Typography>
-          <Button variant="contained" onClick={() => handleOpenDialog('add')}>Add User</Button>
-        </Box>
-        
-        <TextField
-          label="Search Users"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          sx={{ mb: 2 }}
-          fullWidth
-        />
-        
-        {filteredUsers.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Typography variant="h6" color="textSecondary">
-              {users.length === 0 ? 'No users found' : 'No users match your search'}
+      {/* Modern Header */}
+      <Paper sx={{ p: 3, mb: 4, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
+              <Person sx={{ mr: 1, verticalAlign: 'middle' }} />
+              Users Management
+            </Typography>
+            <Typography variant="body1" sx={{ opacity: 0.9 }}>
+              Manage system users and their permissions
             </Typography>
           </Box>
-        ) : (
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow
-                  sx={{
-                    background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)'
-                  }}
-                >
-                  <TableCell
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => handleOpen('add')}
+            sx={{ 
+              bgcolor: 'rgba(255,255,255,0.2)', 
+              color: 'white',
+              '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' }
+            }}
+          >
+            Add User
+          </Button>
+        </Box>
+      </Paper>
+
+      {/* Stats Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ 
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white'
+          }}>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <Person sx={{ fontSize: 40, mr: 2 }} />
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                    {users.length}
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    Total Users
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ 
+            background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+            color: 'white'
+          }}>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <CheckCircle sx={{ fontSize: 40, mr: 2 }} />
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                    {users.filter(u => u.status === 'active').length}
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    Active Users
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ 
+            background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+            color: 'white'
+          }}>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <AdminPanelSettings sx={{ fontSize: 40, mr: 2 }} />
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                    {users.filter(u => u.role === 'SYSTEM_ADMIN').length}
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    System Admins
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ 
+            background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+            color: 'white'
+          }}>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <SupervisorAccount sx={{ fontSize: 40, mr: 2 }} />
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                    {users.filter(u => u.role === 'SALES_REP').length}
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    Sales Reps
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Filters and Search */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
+          <MuiTextField
+            placeholder="Search users..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            InputProps={{
+              startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />
+            }}
+            sx={{ minWidth: 300 }}
+          />
+          
+          <Button
+            startIcon={<Refresh />}
+            onClick={fetchUsers}
+            variant="outlined"
+          >
+            Refresh
+          </Button>
+        </Box>
+      </Paper>
+
+      {/* Users Table */}
+      <Paper sx={{ overflow: 'hidden' }}>
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow sx={{ bgcolor: 'grey.50' }}>
+                <TableCell>
+                  <Button
                     onClick={() => handleSort('firstName')}
-                    sx={{ color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+                    sx={{ fontWeight: 'bold', textTransform: 'none' }}
                   >
-                    Name {sortBy === 'firstName' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
-                  </TableCell>
-                  <TableCell
+                    Name
+                    {sortBy === 'firstName' && (
+                      <span>{sortDirection === 'asc' ? ' ↑' : ' ↓'}</span>
+                    )}
+                  </Button>
+                </TableCell>
+                <TableCell>
+                  <Button
                     onClick={() => handleSort('email')}
-                    sx={{ color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+                    sx={{ fontWeight: 'bold', textTransform: 'none' }}
                   >
-                    Email {sortBy === 'email' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
-                  </TableCell>
-                  <TableCell
+                    Email
+                    {sortBy === 'email' && (
+                      <span>{sortDirection === 'asc' ? ' ↑' : ' ↓'}</span>
+                    )}
+                  </Button>
+                </TableCell>
+                <TableCell>
+                  <Button
                     onClick={() => handleSort('role')}
-                    sx={{ color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+                    sx={{ fontWeight: 'bold', textTransform: 'none' }}
                   >
-                    Role {sortBy === 'role' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
-                  </TableCell>
-                  <TableCell
+                    Role
+                    {sortBy === 'role' && (
+                      <span>{sortDirection === 'asc' ? ' ↑' : ' ↓'}</span>
+                    )}
+                  </Button>
+                </TableCell>
+                <TableCell>
+                  <Button
                     onClick={() => handleSort('status')}
-                    sx={{ color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+                    sx={{ fontWeight: 'bold', textTransform: 'none' }}
                   >
-                    Status {sortBy === 'status' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
-                  </TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {sortedUsers.map(user => (
-                  <TableRow
-                    key={user.id}
-                    hover
-                    sx={{ cursor: 'pointer' }}
-                    onClick={() => handleOpenDialog('view', user)}
-                  >
-                    <TableCell>
-                      <Typography variant="body1" fontWeight="medium">
+                    Status
+                    {sortBy === 'status' && (
+                      <span>{sortDirection === 'asc' ? ' ↑' : ' ↓'}</span>
+                    )}
+                  </Button>
+                </TableCell>
+                <TableCell>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {sortedUsers.map((user) => (
+                <TableRow key={user.id} hover>
+                  <TableCell>
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
                         {user.firstName} {user.lastName}
                       </Typography>
-                    </TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                        sx={{
-                          backgroundColor: getRoleColor(user.role),
-                          color: '#fff',
-                          fontWeight: 'bold'
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={user.status.charAt(0).toUpperCase() + user.status.slice(1)}
-                        sx={{
-                          backgroundColor: getStatusColor(user.status),
-                          color: '#fff',
-                          fontWeight: 'bold'
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell onClick={e => e.stopPropagation()}>
-                      <Button size="small" onClick={() => handleOpenDialog('edit', user)}>Edit</Button>
-                      <Button size="small" color="error" onClick={() => handleDelete(user.id)}>Delete</Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Box display="flex" alignItems="center">
+                      <Email sx={{ fontSize: 16, mr: 0.5, color: 'text.secondary' }} />
+                      <Typography variant="body2">{user.email}</Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={user.role.replace('_', ' ')}
+                      color={getRoleColor(user.role) as any}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={user.status}
+                      color={getStatusColor(user.status) as any}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Box display="flex" gap={1}>
+                      <Tooltip title="View Details">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleOpen('view', user)}
+                          color="primary"
+                        >
+                          <Visibility />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Edit User">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleOpen('edit', user)}
+                          color="primary"
+                        >
+                          <Edit />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete User">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDelete(user.id)}
+                          color="error"
+                        >
+                          <Delete />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
 
       {/* User Dialog */}
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-        <DialogTitle
-          sx={{
-            background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)',
-            color: '#fff',
-            fontWeight: 'bold'
-          }}
-        >
-          {dialogMode === 'view' && selectedUser && 'User Details'}
-          {dialogMode === 'edit' && 'Edit User'}
-          {dialogMode === 'add' && 'Add New User'}
+        <DialogTitle>
+          {dialogMode === 'add' ? 'Add New User' : 
+           dialogMode === 'edit' ? 'Edit User' : 'User Details'}
         </DialogTitle>
         <DialogContent>
-          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 4 }}>
-            {/* Row 1: First Name, Last Name */}
-            <Box display="flex" gap={2} mb={2}>
-              <TextField
-                name="firstName"
-                label="First Name"
-                value={form.firstName}
-                onChange={handleFormChange}
-                required
-                fullWidth
-                disabled={dialogMode === 'view'}
-                sx={{
-                  '& .MuiInputBase-input.Mui-disabled': {
-                    color: 'black',
-                    WebkitTextFillColor: 'black'
-                  }
-                }}
-              />
-              <TextField
-                name="lastName"
-                label="Last Name"
-                value={form.lastName}
-                onChange={handleFormChange}
-                required
-                fullWidth
-                disabled={dialogMode === 'view'}
-                sx={{
-                  '& .MuiInputBase-input.Mui-disabled': {
-                    color: 'black',
-                    WebkitTextFillColor: 'black'
-                  }
-                }}
-              />
-            </Box>
-
-            {/* Row 2: Email */}
-            <TextField
-              name="email"
-              label="Email"
-              type="email"
-              value={form.email}
-              onChange={handleFormChange}
-              required
-              fullWidth
-              disabled={dialogMode === 'view'}
-              sx={{ 
-                mb: 5,
-                '& .MuiInputBase-input.Mui-disabled': {
-                  color: 'black',
-                  WebkitTextFillColor: 'black'
-                }
-              }}
-            />
-
-            {/* Row 3: Role, Status */}
-            <Box display="flex" gap={2} mb={2}>
-              <FormControl fullWidth>
-                <InputLabel>Role</InputLabel>
-                <Select
-                  name="role"
-                  value={form.role}
-                  label="Role"
-                  onChange={handleFormChange}
+          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="First Name"
+                  value={form.firstName}
+                  onChange={(e) => setForm({ ...form, firstName: e.target.value })}
                   required
                   disabled={dialogMode === 'view'}
-                  sx={{
-                    '& .MuiSelect-select.Mui-disabled': {
-                      color: 'black',
-                      WebkitTextFillColor: 'black'
-                    }
-                  }}
-                >
-                  {roleOptions.map(role => (
-                    <MenuItem key={role} value={role}>
-                      {role.charAt(0).toUpperCase() + role.slice(1)}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  name="status"
-                  value={form.status}
-                  label="Status"
-                  onChange={handleFormChange}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Last Name"
+                  value={form.lastName}
+                  onChange={(e) => setForm({ ...form, lastName: e.target.value })}
                   required
                   disabled={dialogMode === 'view'}
-                  sx={{
-                    '& .MuiSelect-select.Mui-disabled': {
-                      color: 'black',
-                      WebkitTextFillColor: 'black'
-                    }
-                  }}
-                >
-                  {statusOptions.map(status => (
-                    <MenuItem key={status} value={status}>
-                      {status.charAt(0).toUpperCase() + status.slice(1)}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-
-            {/* Row 4: Password (only for add/edit modes) */}
-            {(dialogMode === 'edit' || dialogMode === 'add') && (
-              <TextField
-                name="password"
-                label="Password"
-                type="password"
-                value={form.password}
-                onChange={handleFormChange}
-                required={dialogMode === 'add'} // Only required when adding
-                fullWidth
-                disabled={dialogMode === 'view'}
-                autoComplete="new-password"
-                sx={{ 
-                  mb: 2,
-                  '& .MuiInputBase-input.Mui-disabled': {
-                    color: 'black',
-                    WebkitTextFillColor: 'black'
-                  }
-                }}
-              />
-            )}
-
-            {/* Only show action buttons for edit/add modes */}
-            {(dialogMode === 'edit' || dialogMode === 'add') && (
-              <DialogActions>
-                <Button onClick={handleClose}>Cancel</Button>
-                <Button type="submit" variant="contained">
-                  {dialogMode === 'edit' ? 'Update' : 'Add'}
-                </Button>
-              </DialogActions>
-            )}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Email"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  required
+                  disabled={dialogMode === 'view'}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Role</InputLabel>
+                  <Select
+                    value={form.role}
+                    label="Role"
+                    onChange={(e) => setForm({ ...form, role: e.target.value as any })}
+                    disabled={dialogMode === 'view'}
+                  >
+                    {roleOptions.map(role => (
+                      <MenuItem key={role} value={role}>
+                        {role.replace('_', ' ')}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    value={form.status}
+                    label="Status"
+                    onChange={(e) => setForm({ ...form, status: e.target.value as any })}
+                    disabled={dialogMode === 'view'}
+                  >
+                    {statusOptions.map(status => (
+                      <MenuItem key={status} value={status}>
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              {dialogMode === 'add' && (
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Password"
+                    type="password"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    required
+                  />
+                </Grid>
+              )}
+            </Grid>
           </Box>
         </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose}>Cancel</Button>
+          {dialogMode !== 'view' && (
+            <Button onClick={handleSubmit} variant="contained">
+              {dialogMode === 'add' ? 'Add User' : 'Update User'}
+            </Button>
+          )}
+        </DialogActions>
       </Dialog>
 
+      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={3000}
+        autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} sx={{ width: '100%' }}>
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>

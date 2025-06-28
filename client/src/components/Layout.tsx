@@ -29,6 +29,8 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import GroupIcon from '@mui/icons-material/Group';
 import SettingsIcon from '@mui/icons-material/Settings';
+import StorefrontIcon from '@mui/icons-material/Storefront';
+import PersonIcon from '@mui/icons-material/Person';
 import { useAuth } from '../contexts/AuthContext';
 
 const menuItems = [
@@ -36,6 +38,11 @@ const menuItems = [
     label: 'Dashboard', 
     path: '/dashboard',
     icon: <DashboardIcon />
+  },
+  { 
+    label: 'Tenant', 
+    path: '/tenant',
+    icon: <StorefrontIcon />
   },
   { 
     label: 'Accounts', 
@@ -66,11 +73,6 @@ const menuItems = [
     label: 'Tasks', 
     path: '/tasks',
     icon: <AssignmentIcon />
-  },
-  { 
-    label: 'Reports', 
-    path: '/reports',
-    icon: <AssessmentIcon />
   }
 ];
 
@@ -159,16 +161,16 @@ const Layout: React.FC = () => {
           >
             <MenuItem disabled>
               <Avatar sx={{ width: 24, height: 24, mr: 1 }} src={companyLogoUrl} />
-              {user?.company || 'Your Company'}
+              {user?.tenant?.name || 'Your Company'}
             </MenuItem>
             <MenuItem component={Link} to="/profile" onClick={handleProfileMenuClose}>
-              Profile
+              <PersonIcon sx={{ mr: 1, fontSize: 20 }} />
+              My Profile
             </MenuItem>
-            <MenuItem component={Link} to="/settings" onClick={handleProfileMenuClose}>
-              <SettingsIcon sx={{ mr: 1, fontSize: 20 }} />
-              Settings
+            <MenuItem component={Link} to="/reports" onClick={handleProfileMenuClose}>
+              <AssessmentIcon sx={{ mr: 1, fontSize: 20 }} />
+              My Reports
             </MenuItem>
-            <Divider />
             <MenuItem
               onClick={() => {
                 handleProfileMenuClose();
@@ -211,8 +213,8 @@ const Layout: React.FC = () => {
                     <ListItemText primary={item.label} />
                   </ListItemButton>
                 </ListItem>
-                {index === 2 && <Divider />} {/* Add divider after Customers */}
-                {index === 3 && <Divider />} {/* Add divider after Business Units */}
+                {index === 2 && <Divider />} {/* Add divider after Tenant */}
+                {index === 4 && <Divider />} {/* Add divider after Business Units */}
               </React.Fragment>
             ))}
           </List>

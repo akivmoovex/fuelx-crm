@@ -1,17 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { BusinessUnit, User } from '../types';
+import { BusinessUnit } from '../types';
+import { apiClient } from '../utils/api';
 import {
   Container, Paper, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem, FormControl, InputLabel, Snackbar, Alert,
-  Chip, ToggleButtonGroup, ToggleButton, IconButton, Tooltip
+  Chip, IconButton, Tooltip, TextField as MuiTextField, Grid, Card, CardContent, CardHeader, LinearProgress, CircularProgress
 } from '@mui/material';
-import { Add, Edit, Delete, Visibility, Business, LocationOn, Person } from '@mui/icons-material';
+import {
+  Add, Edit, Delete, Visibility, Search, Refresh, Business, LocationOn, 
+  CheckCircle, Warning, Error, Info, People, AttachMoney
+} from '@mui/icons-material';
+
+const statusOptions = ['active', 'inactive', 'suspended'];
 
 const BusinessUnits: React.FC = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
   const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<'view' | 'edit' | 'add'>('add');
   const [selectedBusinessUnit, setSelectedBusinessUnit] = useState<BusinessUnit | null>(null);
@@ -20,22 +25,25 @@ const BusinessUnits: React.FC = () => {
   const [form, setForm] = useState({
     name: '',
     location: '',
-    address: '',
     city: '',
     state: '',
     postalCode: '',
     country: '',
     phone: '',
     email: '',
+    status: 'active',
     managerId: '',
-    status: 'active' as const
+    tenantId: ''
   });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState<'name' | 'location' | 'managerId' | 'status'>('name');
+  const [sortBy, setSortBy] = useState<'name' | 'location' | 'city' | 'status'>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [user, setUser] = useState<any | null>(null);
+  const [tenants, setTenants] = useState<any[]>([]);
   
-  // Get status filter from URL params
+  // Get filters from URL params
   const statusFilter = searchParams.get('status') || 'all';
 
   // Fetch business units
@@ -43,11 +51,7 @@ const BusinessUnits: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('/api/business-units');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
+      const data = await apiClient.get<BusinessUnit[]>('/api/business-units');
       setBusinessUnits(data);
     } catch (err) {
       console.error('Error fetching business units:', err);
@@ -62,10 +66,20 @@ const BusinessUnits: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetch('/api/users')
-      .then(res => res.json())
-      .then(data => setUsers(data))
-      .catch(err => console.error('Error fetching users:', err));
+    // Fetch users and tenants
+    Promise.all([
+      apiClient.get<any[]>('/api/users'),
+      apiClient.get<any[]>('/api/tenants')
+    ]).then(([usersData, tenantsData]) => {
+      setUsers(usersData);
+      setTenants(tenantsData);
+    }).catch(err => console.error('Error fetching data:', err));
+  }, []);
+
+  useEffect(() => {
+    apiClient.get<any>('/api/user')
+      .then(data => setUser(data))
+      .catch(err => console.error('Error fetching user:', err));
   }, []);
 
   // Handle status filter change
@@ -78,69 +92,46 @@ const BusinessUnits: React.FC = () => {
     setSearchParams(searchParams);
   };
 
-  // Handle opening dialogs
-  const handleOpenDialog = (mode: 'view' | 'edit' | 'add', businessUnit?: BusinessUnit) => {
+  const handleOpen = (mode: 'view' | 'edit' | 'add', businessUnit?: BusinessUnit) => {
     setDialogMode(mode);
     setSelectedBusinessUnit(businessUnit || null);
     
-    if (mode === 'view' && businessUnit) {
-      setForm({
-        name: businessUnit.name,
-        location: businessUnit.location,
-        address: businessUnit.address,
-        city: businessUnit.city,
-        state: businessUnit.state,
-        postalCode: businessUnit.postalCode,
-        country: businessUnit.country,
-        phone: businessUnit.phone,
-        email: businessUnit.email,
-        managerId: businessUnit.managerId,
-        status: businessUnit.status
-      });
-      setOpen(true);
-    } else if (mode === 'edit' && businessUnit) {
-      setForm({
-        name: businessUnit.name,
-        location: businessUnit.location,
-        address: businessUnit.address,
-        city: businessUnit.city,
-        state: businessUnit.state,
-        postalCode: businessUnit.postalCode,
-        country: businessUnit.country,
-        phone: businessUnit.phone,
-        email: businessUnit.email,
-        managerId: businessUnit.managerId,
-        status: businessUnit.status
-      });
-      setOpen(true);
-    } else if (mode === 'add') {
+    if (mode === 'add') {
       setForm({
         name: '',
         location: '',
-        address: '',
         city: '',
         state: '',
         postalCode: '',
         country: '',
         phone: '',
         email: '',
+        status: 'active',
         managerId: '',
-        status: 'active'
+        tenantId: ''
       });
-      setOpen(true);
+    } else if (businessUnit) {
+      setForm({
+        name: businessUnit.name,
+        location: businessUnit.location || '',
+        city: businessUnit.city || '',
+        state: businessUnit.state || '',
+        postalCode: businessUnit.postalCode || '',
+        country: businessUnit.country || '',
+        phone: businessUnit.phone || '',
+        email: businessUnit.email || '',
+        status: businessUnit.status,
+        managerId: businessUnit.managerId || '',
+        tenantId: businessUnit.tenantId || ''
+      });
     }
+    
+    setOpen(true);
   };
 
   const handleClose = () => {
     setOpen(false);
     setSelectedBusinessUnit(null);
-    setDialogMode('add');
-  };
-
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
-    const name = (e.target as HTMLInputElement).name;
-    const value = (e.target as HTMLInputElement).value;
-    setForm({ ...form, [name]: value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -148,37 +139,22 @@ const BusinessUnits: React.FC = () => {
 
     try {
       if (dialogMode === 'edit' && selectedBusinessUnit) {
-        const res = await fetch(`/api/business-units/${selectedBusinessUnit.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form)
-        });
-        if (res.ok) {
-          setSnackbar({ open: true, message: 'Business unit updated successfully!', severity: 'success' });
-          fetchBusinessUnits();
-          handleClose();
-        } else {
-          const errorData = await res.json();
-          setSnackbar({ open: true, message: `Failed to update business unit: ${errorData.error}`, severity: 'error' });
-        }
+        await apiClient.put(`/api/business-units/${selectedBusinessUnit.id}`, form);
+        setSnackbar({ open: true, message: 'Business unit updated successfully!', severity: 'success' });
       } else if (dialogMode === 'add') {
-        const res = await fetch('/api/business-units', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form)
-        });
-        if (res.ok) {
-          setSnackbar({ open: true, message: 'Business unit added successfully!', severity: 'success' });
-          fetchBusinessUnits();
-          handleClose();
-        } else {
-          const errorData = await res.json();
-          setSnackbar({ open: true, message: `Failed to add business unit: ${errorData.error}`, severity: 'error' });
-        }
+        await apiClient.post('/api/business-units', form);
+        setSnackbar({ open: true, message: 'Business unit added successfully!', severity: 'success' });
       }
+      
+      fetchBusinessUnits();
+      handleClose();
     } catch (error) {
       console.error('Error submitting business unit:', error);
-      setSnackbar({ open: true, message: 'An error occurred while saving the business unit.', severity: 'error' });
+      setSnackbar({ 
+        open: true, 
+        message: error instanceof Error ? error.message : 'An error occurred while saving the business unit.', 
+        severity: 'error' 
+      });
     }
   };
 
@@ -186,16 +162,16 @@ const BusinessUnits: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this business unit?')) return;
     
     try {
-      const res = await fetch(`/api/business-units/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setSnackbar({ open: true, message: 'Business unit deleted successfully!', severity: 'success' });
-        fetchBusinessUnits();
-      } else {
-        setSnackbar({ open: true, message: 'Failed to delete business unit.', severity: 'error' });
-      }
+      await apiClient.delete(`/api/business-units/${id}`);
+      setSnackbar({ open: true, message: 'Business unit deleted successfully!', severity: 'success' });
+      fetchBusinessUnits();
     } catch (error) {
       console.error('Error deleting business unit:', error);
-      setSnackbar({ open: true, message: 'An error occurred while deleting the business unit.', severity: 'error' });
+      setSnackbar({ 
+        open: true, 
+        message: error instanceof Error ? error.message : 'Failed to delete business unit.', 
+        severity: 'error' 
+      });
     }
   };
 
@@ -234,16 +210,20 @@ const BusinessUnits: React.FC = () => {
   // Get status color
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return '#4caf50';
-      case 'inactive': return '#f44336';
-      default: return '#757575';
+      case 'active': return 'success';
+      case 'inactive': return 'error';
+      case 'suspended': return 'warning';
+      default: return 'default';
     }
   };
 
   if (loading) {
     return (
       <Container maxWidth="xl" sx={{ mt: 4 }}>
-        <Typography>Loading business units...</Typography>
+        <LinearProgress />
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+          <CircularProgress />
+        </Box>
       </Container>
     );
   }
@@ -251,392 +231,454 @@ const BusinessUnits: React.FC = () => {
   if (error) {
     return (
       <Container maxWidth="xl" sx={{ mt: 4 }}>
-        <Typography color="error">Error: {error}</Typography>
-        <Button onClick={fetchBusinessUnits} sx={{ mt: 2 }}>Retry</Button>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+        <Button onClick={fetchBusinessUnits} variant="contained">
+          Retry
+        </Button>
       </Container>
     );
   }
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4 }}>
-      <Paper sx={{ p: 3, mb: 4 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="h5">
-            Business Units ({filteredBusinessUnits.length} of {businessUnits.length})
-            {statusFilter !== 'all' && ` - ${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}`}
-          </Typography>
-          <Button variant="contained" startIcon={<Add />} onClick={() => handleOpenDialog('add')}>
-            Add Business Unit
-          </Button>
-        </Box>
-        
-        {/* Status Filter Toggle Buttons */}
-        <Box sx={{ mb: 2 }}>
-          <ToggleButtonGroup
-            value={statusFilter}
-            exclusive
-            onChange={(e, newStatus) => newStatus && handleStatusFilterChange(newStatus)}
-            aria-label="business unit status filter"
-          >
-            <ToggleButton value="all" aria-label="all business units">
-              All Units
-            </ToggleButton>
-            <ToggleButton value="active" aria-label="active business units">
-              Active
-            </ToggleButton>
-            <ToggleButton value="inactive" aria-label="inactive business units">
-              Inactive
-            </ToggleButton>
-          </ToggleButtonGroup>
-        </Box>
-        
-        <TextField
-          label="Search Business Units"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          sx={{ mb: 2 }}
-          fullWidth
-        />
-        
-        {filteredBusinessUnits.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Typography variant="h6" color="textSecondary">
-              {businessUnits.length === 0 ? 'No business units found' : 'No business units match your search and filter criteria'}
+      {/* Modern Header */}
+      <Paper sx={{ p: 3, mb: 4, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
+              <Business sx={{ mr: 1, verticalAlign: 'middle' }} />
+              Business Units Management
+            </Typography>
+            <Typography variant="body1" sx={{ opacity: 0.9 }}>
+              Manage your business units and locations
             </Typography>
           </Box>
-        ) : (
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow
-                  sx={{
-                    background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)'
-                  }}
-                >
-                  <TableCell
+          {user?.role === 'SYSTEM_ADMIN' && (
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => handleOpen('add')}
+              sx={{ 
+                bgcolor: 'rgba(255,255,255,0.2)', 
+                color: 'white',
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' }
+              }}
+            >
+              Add Business Unit
+            </Button>
+          )}
+        </Box>
+      </Paper>
+
+      {/* Stats Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ 
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white'
+          }}>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <Business sx={{ fontSize: 40, mr: 2 }} />
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                    {businessUnits.length}
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    Total Units
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ 
+            background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+            color: 'white'
+          }}>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <CheckCircle sx={{ fontSize: 40, mr: 2 }} />
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                    {businessUnits.filter(b => b.status === 'active').length}
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    Active Units
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ 
+            background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+            color: 'white'
+          }}>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <People sx={{ fontSize: 40, mr: 2 }} />
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                    {users.filter(u => u.businessUnitId).length}
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    Assigned Users
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ 
+            background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+            color: 'white'
+          }}>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <LocationOn sx={{ fontSize: 40, mr: 2 }} />
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                    {new Set(businessUnits.map(b => b.city)).size}
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    Cities
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Filters and Search */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
+          <MuiTextField
+            placeholder="Search business units..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            InputProps={{
+              startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />
+            }}
+            sx={{ minWidth: 300 }}
+          />
+          
+          <FormControl sx={{ minWidth: 150 }}>
+            <InputLabel>Status</InputLabel>
+            <Select
+              value={statusFilter}
+              label="Status"
+              onChange={(e) => handleStatusFilterChange(e.target.value)}
+            >
+              <MenuItem value="all">All Status</MenuItem>
+              {statusOptions.map(status => (
+                <MenuItem key={status} value={status}>
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <Button
+            startIcon={<Refresh />}
+            onClick={fetchBusinessUnits}
+            variant="outlined"
+          >
+            Refresh
+          </Button>
+        </Box>
+      </Paper>
+
+      {/* Business Units Table */}
+      <Paper sx={{ overflow: 'hidden' }}>
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow sx={{ bgcolor: 'grey.50' }}>
+                <TableCell>
+                  <Button
                     onClick={() => handleSort('name')}
-                    sx={{ color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+                    sx={{ fontWeight: 'bold', textTransform: 'none' }}
                   >
-                    Name {sortBy === 'name' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
-                  </TableCell>
-                  <TableCell
+                    Business Unit Name
+                    {sortBy === 'name' && (
+                      <span>{sortDirection === 'asc' ? ' ↑' : ' ↓'}</span>
+                    )}
+                  </Button>
+                </TableCell>
+                <TableCell>
+                  <Button
                     onClick={() => handleSort('location')}
-                    sx={{ color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+                    sx={{ fontWeight: 'bold', textTransform: 'none' }}
                   >
-                    Location {sortBy === 'location' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
-                  </TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Address</TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Contact</TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Manager</TableCell>
-                  <TableCell
+                    Location
+                    {sortBy === 'location' && (
+                      <span>{sortDirection === 'asc' ? ' ↑' : ' ↓'}</span>
+                    )}
+                  </Button>
+                </TableCell>
+                <TableCell>
+                  <Button
+                    onClick={() => handleSort('city')}
+                    sx={{ fontWeight: 'bold', textTransform: 'none' }}
+                  >
+                    City
+                    {sortBy === 'city' && (
+                      <span>{sortDirection === 'asc' ? ' ↑' : ' ↓'}</span>
+                    )}
+                  </Button>
+                </TableCell>
+                <TableCell>Contact Info</TableCell>
+                <TableCell>
+                  <Button
                     onClick={() => handleSort('status')}
-                    sx={{ color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+                    sx={{ fontWeight: 'bold', textTransform: 'none' }}
                   >
-                    Status {sortBy === 'status' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+                    Status
+                    {sortBy === 'status' && (
+                      <span>{sortDirection === 'asc' ? ' ↑' : ' ↓'}</span>
+                    )}
+                  </Button>
+                </TableCell>
+                <TableCell>Manager</TableCell>
+                <TableCell>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {sortedBusinessUnits.map((businessUnit) => (
+                <TableRow key={businessUnit.id} hover>
+                  <TableCell>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                      {businessUnit.name}
+                    </Typography>
                   </TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {sortedBusinessUnits.map(businessUnit => (
-                  <TableRow
-                    key={businessUnit.id}
-                    hover
-                    sx={{ cursor: 'pointer' }}
-                    onClick={() => handleOpenDialog('view', businessUnit)}
-                  >
-                    <TableCell>
-                      <Box display="flex" alignItems="center">
-                        <Business sx={{ mr: 1, color: 'primary.main' }} />
-                        <Typography variant="body1" fontWeight="medium">
-                          {businessUnit.name}
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Box display="flex" alignItems="center">
-                        <LocationOn sx={{ mr: 1, color: 'text.secondary' }} />
+                  <TableCell>
+                    <Typography variant="body2">
+                      {businessUnit.location}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {businessUnit.city}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Box>
+                      {businessUnit.email && (
                         <Typography variant="body2">
-                          {businessUnit.location}
+                          {businessUnit.email}
                         </Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="textSecondary">
-                        {businessUnit.address}, {businessUnit.city}, {businessUnit.state} {businessUnit.postalCode}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {businessUnit.phone}
-                      </Typography>
-                      <Typography variant="body2" color="textSecondary">
-                        {businessUnit.email}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {businessUnit.managerId ? 
-                        users.find(u => u.id === businessUnit.managerId)?.firstName + ' ' + users.find(u => u.id === businessUnit.managerId)?.lastName : 
-                        '-'
-                      }
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={businessUnit.status.charAt(0).toUpperCase() + businessUnit.status.slice(1)}
-                        sx={{
-                          backgroundColor: getStatusColor(businessUnit.status),
-                          color: '#fff',
-                          fontWeight: 'bold'
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell onClick={e => e.stopPropagation()}>
-                      <Box display="flex" gap={1}>
-                        <Tooltip title="View details">
-                          <IconButton size="small" onClick={() => handleOpenDialog('view', businessUnit)}>
-                            <Visibility />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Edit business unit">
-                          <IconButton size="small" onClick={() => handleOpenDialog('edit', businessUnit)}>
-                            <Edit />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete business unit">
-                          <IconButton size="small" color="error" onClick={() => handleDelete(businessUnit.id)}>
-                            <Delete />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
+                      )}
+                      {businessUnit.phone && (
+                        <Typography variant="body2" color="textSecondary">
+                          {businessUnit.phone}
+                        </Typography>
+                      )}
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={businessUnit.status}
+                      color={getStatusColor(businessUnit.status) as any}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {businessUnit.manager ? `${businessUnit.manager.firstName} ${businessUnit.manager.lastName}` : 'No manager'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Box display="flex" gap={1}>
+                      <Tooltip title="View Details">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleOpen('view', businessUnit)}
+                          color="primary"
+                        >
+                          <Visibility />
+                        </IconButton>
+                      </Tooltip>
+                      {user?.role === 'SYSTEM_ADMIN' && (
+                        <>
+                          <Tooltip title="Edit Business Unit">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpen('edit', businessUnit)}
+                              color="primary"
+                            >
+                              <Edit />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete Business Unit">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDelete(businessUnit.id)}
+                              color="error"
+                            >
+                              <Delete />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
 
       {/* Business Unit Dialog */}
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-        <DialogTitle
-          sx={{
-            background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)',
-            color: '#fff',
-            fontWeight: 'bold'
-          }}
-        >
-          {dialogMode === 'view' && selectedBusinessUnit && 'Business Unit Details'}
-          {dialogMode === 'edit' && 'Edit Business Unit'}
-          {dialogMode === 'add' && 'Add New Business Unit'}
+        <DialogTitle>
+          {dialogMode === 'add' ? 'Add New Business Unit' : 
+           dialogMode === 'edit' ? 'Edit Business Unit' : 'Business Unit Details'}
         </DialogTitle>
         <DialogContent>
-          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 4 }}>
-            {/* Row 1: Name, Location */}
-            <Box display="flex" gap={2} mb={2}>
-              <TextField
-                name="name"
-                label="Business Unit Name"
-                value={form.name}
-                onChange={handleFormChange}
-                required
-                fullWidth
-                disabled={dialogMode === 'view'}
-                sx={{ 
-                  '& .MuiInputBase-input.Mui-disabled': {
-                    color: 'black',
-                    WebkitTextFillColor: 'black'
-                  }
-                }}
-              />
-              <TextField
-                name="location"
-                label="Location"
-                value={form.location}
-                onChange={handleFormChange}
-                required
-                fullWidth
-                disabled={dialogMode === 'view'}
-                sx={{ 
-                  '& .MuiInputBase-input.Mui-disabled': {
-                    color: 'black',
-                    WebkitTextFillColor: 'black'
-                  }
-                }}
-              />
-            </Box>
-
-            {/* Row 2: Address */}
-            <TextField
-              name="address"
-              label="Address"
-              value={form.address}
-              onChange={handleFormChange}
-              required
-              fullWidth
-              disabled={dialogMode === 'view'}
-              sx={{ 
-                mb: 2,
-                '& .MuiInputBase-input.Mui-disabled': {
-                  color: 'black',
-                  WebkitTextFillColor: 'black'
-                }
-              }}
-            />
-
-            {/* Row 3: City, State, Postal Code */}
-            <Box display="flex" gap={2} mb={2}>
-              <TextField
-                name="city"
-                label="City"
-                value={form.city}
-                onChange={handleFormChange}
-                required
-                fullWidth
-                disabled={dialogMode === 'view'}
-                sx={{
-                  '& .MuiInputBase-input.Mui-disabled': {
-                    color: 'black',
-                    WebkitTextFillColor: 'black'
-                  }
-                }}
-              />
-              <TextField
-                name="state"
-                label="State/Province"
-                value={form.state}
-                onChange={handleFormChange}
-                required
-                fullWidth
-                disabled={dialogMode === 'view'}
-                sx={{
-                  '& .MuiInputBase-input.Mui-disabled': {
-                    color: 'black',
-                    WebkitTextFillColor: 'black'
-                  }
-                }}
-              />
-              <TextField
-                name="postalCode"
-                label="Postal Code"
-                value={form.postalCode}
-                onChange={handleFormChange}
-                required
-                fullWidth
-                disabled={dialogMode === 'view'}
-                sx={{
-                  '& .MuiInputBase-input.Mui-disabled': {
-                    color: 'black',
-                    WebkitTextFillColor: 'black'
-                  }
-                }}
-              />
-            </Box>
-
-            {/* Row 4: Country, Phone */}
-            <Box display="flex" gap={2} mb={2}>
-              <TextField
-                name="country"
-                label="Country"
-                value={form.country}
-                onChange={handleFormChange}
-                required
-                fullWidth
-                disabled={dialogMode === 'view'}
-                sx={{
-                  '& .MuiInputBase-input.Mui-disabled': {
-                    color: 'black',
-                    WebkitTextFillColor: 'black'
-                  }
-                }}
-              />
-              <TextField
-                name="phone"
-                label="Phone"
-                value={form.phone}
-                onChange={handleFormChange}
-                required
-                fullWidth
-                disabled={dialogMode === 'view'}
-                sx={{
-                  '& .MuiInputBase-input.Mui-disabled': {
-                    color: 'black',
-                    WebkitTextFillColor: 'black'
-                  }
-                }}
-              />
-            </Box>
-
-            {/* Row 5: Email, Manager */}
-            <Box display="flex" gap={2} mb={2}>
-              <TextField
-                name="email"
-                label="Email"
-                type="email"
-                value={form.email}
-                onChange={handleFormChange}
-                required
-                fullWidth
-                disabled={dialogMode === 'view'}
-                sx={{
-                  '& .MuiInputBase-input.Mui-disabled': {
-                    color: 'black',
-                    WebkitTextFillColor: 'black'
-                  }
-                }}
-              />
-              <FormControl fullWidth>
-                <InputLabel>Manager</InputLabel>
-                <Select
-                  name="managerId"
-                  value={form.managerId}
-                  label="Manager"
-                  onChange={handleFormChange}
+          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Business Unit Name"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  required
                   disabled={dialogMode === 'view'}
-                  sx={{
-                    '& .MuiSelect-select.Mui-disabled': {
-                      color: 'black',
-                      WebkitTextFillColor: 'black'
-                    }
-                  }}
-                >
-                  <MenuItem value="">No Manager</MenuItem>
-                  {users.filter(user => user.role === 'manager').map(user => (
-                    <MenuItem key={user.id} value={user.id}>
-                      {user.firstName} {user.lastName}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-
-            {/* Row 6: Status */}
-            <FormControl fullWidth>
-              <InputLabel>Status</InputLabel>
-              <Select
-                name="status"
-                value={form.status}
-                label="Status"
-                onChange={handleFormChange}
-                disabled={dialogMode === 'view'}
-                sx={{
-                  '& .MuiSelect-select.Mui-disabled': {
-                    color: 'black',
-                    WebkitTextFillColor: 'black'
-                  }
-                }}
-              >
-                <MenuItem value="active">Active</MenuItem>
-                <MenuItem value="inactive">Inactive</MenuItem>
-              </Select>
-            </FormControl>
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Location"
+                  value={form.location}
+                  onChange={(e) => setForm({ ...form, location: e.target.value })}
+                  disabled={dialogMode === 'view'}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="City"
+                  value={form.city}
+                  onChange={(e) => setForm({ ...form, city: e.target.value })}
+                  disabled={dialogMode === 'view'}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="State/Province"
+                  value={form.state}
+                  onChange={(e) => setForm({ ...form, state: e.target.value })}
+                  disabled={dialogMode === 'view'}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Postal Code"
+                  value={form.postalCode}
+                  onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
+                  disabled={dialogMode === 'view'}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Country"
+                  value={form.country}
+                  onChange={(e) => setForm({ ...form, country: e.target.value })}
+                  disabled={dialogMode === 'view'}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Phone"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  disabled={dialogMode === 'view'}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Email"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  disabled={dialogMode === 'view'}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    value={form.status}
+                    label="Status"
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    disabled={dialogMode === 'view'}
+                  >
+                    {statusOptions.map(status => (
+                      <MenuItem key={status} value={status}>
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Manager</InputLabel>
+                  <Select
+                    value={form.managerId}
+                    label="Manager"
+                    onChange={(e) => setForm({ ...form, managerId: e.target.value })}
+                    disabled={dialogMode === 'view'}
+                  >
+                    <MenuItem value="">No manager</MenuItem>
+                    {users.map(user => (
+                      <MenuItem key={user.id} value={user.id}>
+                        {user.firstName} {user.lastName}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth required>
+                  <InputLabel>Tenant</InputLabel>
+                  <Select
+                    value={form.tenantId}
+                    label="Tenant"
+                    onChange={(e) => setForm({ ...form, tenantId: e.target.value })}
+                    disabled={dialogMode === 'view'}
+                  >
+                    {tenants.map(tenant => (
+                      <MenuItem key={tenant.id} value={tenant.id}>
+                        {tenant.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>Cancel</Button>
-          {dialogMode !== 'view' && (
+          {dialogMode !== 'view' && user?.role === 'SYSTEM_ADMIN' && (
             <Button onClick={handleSubmit} variant="contained">
-              {dialogMode === 'edit' ? 'Update' : 'Create'}
+              {dialogMode === 'add' ? 'Add Business Unit' : 'Update Business Unit'}
             </Button>
           )}
         </DialogActions>
@@ -645,11 +687,14 @@ const BusinessUnits: React.FC = () => {
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={3000}
+        autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity}>
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>

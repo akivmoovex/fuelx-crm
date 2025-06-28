@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Customer } from '../types';
+import { apiClient } from '../utils/api';
 import {
   Container, Paper, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem, FormControl, InputLabel, Snackbar, Alert,
-  Chip
+  Chip, IconButton, Tooltip, TextField as MuiTextField, Grid, Card, CardContent, CardHeader, LinearProgress, CircularProgress
 } from '@mui/material';
+import {
+  Add, Edit, Delete, Visibility, Search, Refresh, Person, Email, Phone, Business, 
+  TrendingUp, CheckCircle, Warning, Error, Info
+} from '@mui/icons-material';
 
 const statusOptions = ['lead', 'prospect', 'customer', 'inactive'];
 const sourceOptions = ['website', 'referral', 'cold-call', 'social-media', 'other'];
@@ -36,11 +41,7 @@ const Customers: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('/api/customers');
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
+      const data = await apiClient.get<Customer[]>('/api/customers');
       setCustomers(data);
     } catch (err) {
       console.error('Error fetching customers:', err);
@@ -54,36 +55,11 @@ const Customers: React.FC = () => {
     fetchCustomers();
   }, []);
 
-  // Handle opening dialogs
-  const handleOpenDialog = (mode: 'view' | 'edit' | 'add', customer?: Customer) => {
+  const handleOpen = (mode: 'view' | 'edit' | 'add', customer?: Customer) => {
     setDialogMode(mode);
     setSelectedCustomer(customer || null);
     
-    if (mode === 'view' && customer) {
-      setForm({
-        firstName: customer.firstName,
-        lastName: customer.lastName,
-        email: customer.email || '',
-        phone: customer.phone || '',
-        company: customer.company,
-        status: customer.status,
-        source: customer.source,
-        notes: customer.notes
-      });
-      setOpen(true);
-    } else if (mode === 'edit' && customer) {
-      setForm({
-        firstName: customer.firstName,
-        lastName: customer.lastName,
-        email: customer.email || '',
-        phone: customer.phone || '',
-        company: customer.company,
-        status: customer.status,
-        source: customer.source,
-        notes: customer.notes
-      });
-      setOpen(true);
-    } else if (mode === 'add') {
+    if (mode === 'add') {
       setForm({
         firstName: '',
         lastName: '',
@@ -94,20 +70,25 @@ const Customers: React.FC = () => {
         source: '',
         notes: ''
       });
-      setOpen(true);
+    } else if (customer) {
+      setForm({
+        firstName: customer.firstName,
+        lastName: customer.lastName,
+        email: customer.email,
+        phone: customer.phone || '',
+        company: customer.company || '',
+        status: customer.status,
+        source: customer.source || '',
+        notes: customer.notes || ''
+      });
     }
+    
+    setOpen(true);
   };
 
   const handleClose = () => {
     setOpen(false);
     setSelectedCustomer(null);
-    setDialogMode('add');
-  };
-
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
-    const name = (e.target as HTMLInputElement).name;
-    const value = (e.target as HTMLInputElement).value;
-    setForm({ ...form, [name]: value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -115,37 +96,22 @@ const Customers: React.FC = () => {
 
     try {
       if (dialogMode === 'edit' && selectedCustomer) {
-        const res = await fetch(`/api/customers/${selectedCustomer.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form)
-        });
-        if (res.ok) {
-          setSnackbar({ open: true, message: 'Customer updated successfully!', severity: 'success' });
-          fetchCustomers();
-          handleClose();
-        } else {
-          const errorData = await res.json();
-          setSnackbar({ open: true, message: `Failed to update customer: ${errorData.error}`, severity: 'error' });
-        }
+        await apiClient.put(`/api/customers/${selectedCustomer.id}`, form);
+        setSnackbar({ open: true, message: 'Customer updated successfully!', severity: 'success' });
       } else if (dialogMode === 'add') {
-        const res = await fetch('/api/customers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(form)
-        });
-        if (res.ok) {
-          setSnackbar({ open: true, message: 'Customer added successfully!', severity: 'success' });
-          fetchCustomers();
-          handleClose();
-        } else {
-          const errorData = await res.json();
-          setSnackbar({ open: true, message: `Failed to add customer: ${errorData.error}`, severity: 'error' });
-        }
+        await apiClient.post('/api/customers', form);
+        setSnackbar({ open: true, message: 'Customer added successfully!', severity: 'success' });
       }
+      
+      fetchCustomers();
+      handleClose();
     } catch (error) {
       console.error('Error submitting customer:', error);
-      setSnackbar({ open: true, message: 'An error occurred while saving the customer.', severity: 'error' });
+      setSnackbar({ 
+        open: true, 
+        message: error instanceof Error ? error.message : 'An error occurred while saving the customer.', 
+        severity: 'error' 
+      });
     }
   };
 
@@ -153,16 +119,16 @@ const Customers: React.FC = () => {
     if (!window.confirm('Are you sure you want to delete this customer?')) return;
     
     try {
-      const res = await fetch(`/api/customers/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setSnackbar({ open: true, message: 'Customer deleted successfully!', severity: 'success' });
-        fetchCustomers();
-      } else {
-        setSnackbar({ open: true, message: 'Failed to delete customer.', severity: 'error' });
-      }
+      await apiClient.delete(`/api/customers/${id}`);
+      setSnackbar({ open: true, message: 'Customer deleted successfully!', severity: 'success' });
+      fetchCustomers();
     } catch (error) {
       console.error('Error deleting customer:', error);
-      setSnackbar({ open: true, message: 'An error occurred while deleting the customer.', severity: 'error' });
+      setSnackbar({ 
+        open: true, 
+        message: error instanceof Error ? error.message : 'Failed to delete customer.', 
+        severity: 'error' 
+      });
     }
   };
 
@@ -198,18 +164,21 @@ const Customers: React.FC = () => {
   // Get status color
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'lead': return '#ff9800';
-      case 'prospect': return '#2196f3';
-      case 'customer': return '#4caf50';
-      case 'inactive': return '#f44336';
-      default: return '#757575';
+      case 'lead': return 'warning';
+      case 'prospect': return 'info';
+      case 'customer': return 'success';
+      case 'inactive': return 'error';
+      default: return 'default';
     }
   };
 
   if (loading) {
     return (
       <Container maxWidth="xl" sx={{ mt: 4 }}>
-        <Typography>Loading customers...</Typography>
+        <LinearProgress />
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+          <CircularProgress />
+        </Box>
       </Container>
     );
   }
@@ -217,290 +186,405 @@ const Customers: React.FC = () => {
   if (error) {
     return (
       <Container maxWidth="xl" sx={{ mt: 4 }}>
-        <Typography color="error">Error: {error}</Typography>
-        <Button onClick={fetchCustomers} sx={{ mt: 2 }}>Retry</Button>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+        <Button onClick={fetchCustomers} variant="contained">
+          Retry
+        </Button>
       </Container>
     );
   }
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4 }}>
-      <Paper sx={{ p: 3, mb: 4 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="h5">Customers ({filteredCustomers.length} of {customers.length})</Typography>
-          <Button variant="contained" onClick={() => handleOpenDialog('add')}>Add Customer</Button>
-        </Box>
-        
-        <TextField
-          label="Search Customers"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          sx={{ mb: 2 }}
-          fullWidth
-        />
-        
-        {filteredCustomers.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Typography variant="h6" color="textSecondary">
-              {customers.length === 0 ? 'No customers found' : 'No customers match your search'}
+      {/* Modern Header */}
+      <Paper sx={{ p: 3, mb: 4, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
+              <Person sx={{ mr: 1, verticalAlign: 'middle' }} />
+              Customers Management
+            </Typography>
+            <Typography variant="body1" sx={{ opacity: 0.9 }}>
+              Manage your customer relationships and leads
             </Typography>
           </Box>
-        ) : (
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow
-                  sx={{
-                    background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)'
-                  }}
-                >
-                  <TableCell
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => handleOpen('add')}
+            sx={{ 
+              bgcolor: 'rgba(255,255,255,0.2)', 
+              color: 'white',
+              '&:hover': { bgcolor: 'rgba(255,255,255,0.3)' }
+            }}
+          >
+            Add Customer
+          </Button>
+        </Box>
+      </Paper>
+
+      {/* Stats Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ 
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white'
+          }}>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <Person sx={{ fontSize: 40, mr: 2 }} />
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                    {customers.length}
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    Total Customers
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ 
+            background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+            color: 'white'
+          }}>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <CheckCircle sx={{ fontSize: 40, mr: 2 }} />
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                    {customers.filter(c => c.status === 'customer').length}
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    Active Customers
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ 
+            background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+            color: 'white'
+          }}>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <Warning sx={{ fontSize: 40, mr: 2 }} />
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                    {customers.filter(c => c.status === 'lead').length}
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    New Leads
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ 
+            background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+            color: 'white'
+          }}>
+            <CardContent>
+              <Box display="flex" alignItems="center">
+                <TrendingUp sx={{ fontSize: 40, mr: 2 }} />
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                    {customers.filter(c => c.status === 'prospect').length}
+                  </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                    Prospects
+                  </Typography>
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Filters and Search */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
+          <MuiTextField
+            placeholder="Search customers..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            InputProps={{
+              startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />
+            }}
+            sx={{ minWidth: 300 }}
+          />
+          
+          <Button
+            startIcon={<Refresh />}
+            onClick={fetchCustomers}
+            variant="outlined"
+          >
+            Refresh
+          </Button>
+        </Box>
+      </Paper>
+
+      {/* Customers Table */}
+      <Paper sx={{ overflow: 'hidden' }}>
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow sx={{ bgcolor: 'grey.50' }}>
+                <TableCell>
+                  <Button
                     onClick={() => handleSort('firstName')}
-                    sx={{ color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+                    sx={{ fontWeight: 'bold', textTransform: 'none' }}
                   >
-                    Name {sortBy === 'firstName' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
-                  </TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Company</TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Email</TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Phone</TableCell>
-                  <TableCell
+                    Name
+                    {sortBy === 'firstName' && (
+                      <span>{sortDirection === 'asc' ? ' ↑' : ' ↓'}</span>
+                    )}
+                  </Button>
+                </TableCell>
+                <TableCell>Contact Info</TableCell>
+                <TableCell>
+                  <Button
+                    onClick={() => handleSort('company')}
+                    sx={{ fontWeight: 'bold', textTransform: 'none' }}
+                  >
+                    Company
+                    {sortBy === 'company' && (
+                      <span>{sortDirection === 'asc' ? ' ↑' : ' ↓'}</span>
+                    )}
+                  </Button>
+                </TableCell>
+                <TableCell>
+                  <Button
                     onClick={() => handleSort('status')}
-                    sx={{ color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+                    sx={{ fontWeight: 'bold', textTransform: 'none' }}
                   >
-                    Status {sortBy === 'status' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
-                  </TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Source</TableCell>
-                  <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {sortedCustomers.map(customer => (
-                  <TableRow
-                    key={customer.id}
-                    hover
-                    sx={{ cursor: 'pointer' }}
-                    onClick={() => handleOpenDialog('view', customer)}
-                  >
-                    <TableCell>
-                      <Typography variant="body1" fontWeight="medium">
+                    Status
+                    {sortBy === 'status' && (
+                      <span>{sortDirection === 'asc' ? ' ↑' : ' ↓'}</span>
+                    )}
+                  </Button>
+                </TableCell>
+                <TableCell>Source</TableCell>
+                <TableCell>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {sortedCustomers.map((customer) => (
+                <TableRow key={customer.id} hover>
+                  <TableCell>
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
                         {customer.firstName} {customer.lastName}
                       </Typography>
-                    </TableCell>
-                    <TableCell>{customer.company}</TableCell>
-                    <TableCell>{customer.email || '-'}</TableCell>
-                    <TableCell>{customer.phone || '-'}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={customer.status.charAt(0).toUpperCase() + customer.status.slice(1)}
-                        sx={{
-                          backgroundColor: getStatusColor(customer.status),
-                          color: '#fff',
-                          fontWeight: 'bold'
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>{customer.source || '-'}</TableCell>
-                    <TableCell onClick={e => e.stopPropagation()}>
-                      <Button size="small" onClick={() => handleOpenDialog('edit', customer)}>Edit</Button>
-                      <Button size="small" color="error" onClick={() => handleDelete(customer.id)}>Delete</Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Box>
+                      {customer.email && (
+                        <Box display="flex" alignItems="center" mb={0.5}>
+                          <Email sx={{ fontSize: 16, mr: 0.5, color: 'text.secondary' }} />
+                          <Typography variant="body2">{customer.email}</Typography>
+                        </Box>
+                      )}
+                      {customer.phone && (
+                        <Box display="flex" alignItems="center">
+                          <Phone sx={{ fontSize: 16, mr: 0.5, color: 'text.secondary' }} />
+                          <Typography variant="body2">{customer.phone}</Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {customer.company || 'N/A'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={customer.status}
+                      color={getStatusColor(customer.status) as any}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" color="textSecondary">
+                      {customer.source || 'N/A'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Box display="flex" gap={1}>
+                      <Tooltip title="View Details">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleOpen('view', customer)}
+                          color="primary"
+                        >
+                          <Visibility />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Edit Customer">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleOpen('edit', customer)}
+                          color="primary"
+                        >
+                          <Edit />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete Customer">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDelete(customer.id)}
+                          color="error"
+                        >
+                          <Delete />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
 
       {/* Customer Dialog */}
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-        <DialogTitle
-          sx={{
-            background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)',
-            color: '#fff',
-            fontWeight: 'bold'
-          }}
-        >
-          {dialogMode === 'view' && selectedCustomer && 'Customer Details'}
-          {dialogMode === 'edit' && 'Edit Customer'}
-          {dialogMode === 'add' && 'Add New Customer'}
+        <DialogTitle>
+          {dialogMode === 'add' ? 'Add New Customer' : 
+           dialogMode === 'edit' ? 'Edit Customer' : 'Customer Details'}
         </DialogTitle>
         <DialogContent>
-          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 4 }}>
-            {/* Row 1: First Name, Last Name */}
-            <Box display="flex" gap={2} mb={2}>
-              <TextField
-                name="firstName"
-                label="First Name"
-                value={form.firstName}
-                onChange={handleFormChange}
-                required
-                fullWidth
-                disabled={dialogMode === 'view'}
-                sx={{
-                  '& .MuiInputBase-input.Mui-disabled': {
-                    color: 'black',
-                    WebkitTextFillColor: 'black'
-                  }
-                }}
-              />
-              <TextField
-                name="lastName"
-                label="Last Name"
-                value={form.lastName}
-                onChange={handleFormChange}
-                required
-                fullWidth
-                disabled={dialogMode === 'view'}
-                sx={{
-                  '& .MuiInputBase-input.Mui-disabled': {
-                    color: 'black',
-                    WebkitTextFillColor: 'black'
-                  }
-                }}
-              />
-            </Box>
-
-            {/* Row 2: Email, Phone */}
-            <Box display="flex" gap={2} mb={2}>
-              <TextField
-                name="email"
-                label="Email"
-                type="email"
-                value={form.email}
-                onChange={handleFormChange}
-                fullWidth
-                disabled={dialogMode === 'view'}
-                sx={{
-                  '& .MuiInputBase-input.Mui-disabled': {
-                    color: 'black',
-                    WebkitTextFillColor: 'black'
-                  }
-                }}
-              />
-              <TextField
-                name="phone"
-                label="Phone"
-                value={form.phone}
-                onChange={handleFormChange}
-                fullWidth
-                disabled={dialogMode === 'view'}
-                sx={{
-                  '& .MuiInputBase-input.Mui-disabled': {
-                    color: 'black',
-                    WebkitTextFillColor: 'black'
-                  }
-                }}
-              />
-            </Box>
-
-            {/* Row 3: Company */}
-            <TextField
-              name="company"
-              label="Company"
-              value={form.company}
-              onChange={handleFormChange}
-              required
-              fullWidth
-              disabled={dialogMode === 'view'}
-              sx={{ 
-                mb: 5,
-                '& .MuiInputBase-input.Mui-disabled': {
-                  color: 'black',
-                  WebkitTextFillColor: 'black'
-                }
-              }}
-            />
-
-            {/* Row 4: Status, Source */}
-            <Box display="flex" gap={2} mb={2}>
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  name="status"
-                  value={form.status}
-                  label="Status"
-                  onChange={handleFormChange}
+          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="First Name"
+                  value={form.firstName}
+                  onChange={(e) => setForm({ ...form, firstName: e.target.value })}
                   required
                   disabled={dialogMode === 'view'}
-                  sx={{
-                    '& .MuiSelect-select.Mui-disabled': {
-                      color: 'black',
-                      WebkitTextFillColor: 'black'
-                    }
-                  }}
-                >
-                  {statusOptions.map(status => (
-                    <MenuItem key={status} value={status}>
-                      {status.charAt(0).toUpperCase() + status.slice(1)}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl fullWidth>
-                <InputLabel>Source</InputLabel>
-                <Select
-                  name="source"
-                  value={form.source}
-                  label="Source"
-                  onChange={handleFormChange}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Last Name"
+                  value={form.lastName}
+                  onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+                  required
                   disabled={dialogMode === 'view'}
-                  sx={{
-                    '& .MuiSelect-select.Mui-disabled': {
-                      color: 'black',
-                      WebkitTextFillColor: 'black'
-                    }
-                  }}
-                >
-                  <MenuItem value="">Select Source</MenuItem>
-                  {sourceOptions.map(source => (
-                    <MenuItem key={source} value={source}>
-                      {source.charAt(0).toUpperCase() + source.slice(1).replace('-', ' ')}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-
-            {/* Row 5: Notes */}
-            <TextField
-              name="notes"
-              label="Notes"
-              value={form.notes}
-              onChange={handleFormChange}
-              fullWidth
-              multiline
-              rows={3}
-              disabled={dialogMode === 'view'}
-              sx={{ 
-                mb: 2,
-                '& .MuiInputBase-input.Mui-disabled': {
-                  color: 'black',
-                  WebkitTextFillColor: 'black'
-                }
-              }}
-            />
-
-            {/* Only show action buttons for edit/add modes */}
-            {(dialogMode === 'edit' || dialogMode === 'add') && (
-              <DialogActions>
-                <Button onClick={handleClose}>Cancel</Button>
-                <Button type="submit" variant="contained">
-                  {dialogMode === 'edit' ? 'Update' : 'Add'}
-                </Button>
-              </DialogActions>
-            )}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Email"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  required
+                  disabled={dialogMode === 'view'}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Phone"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  disabled={dialogMode === 'view'}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Company"
+                  value={form.company}
+                  onChange={(e) => setForm({ ...form, company: e.target.value })}
+                  disabled={dialogMode === 'view'}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    value={form.status}
+                    label="Status"
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    disabled={dialogMode === 'view'}
+                  >
+                    {statusOptions.map(status => (
+                      <MenuItem key={status} value={status}>
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Source</InputLabel>
+                  <Select
+                    value={form.source}
+                    label="Source"
+                    onChange={(e) => setForm({ ...form, source: e.target.value })}
+                    disabled={dialogMode === 'view'}
+                  >
+                    <MenuItem value="">None</MenuItem>
+                    {sourceOptions.map(source => (
+                      <MenuItem key={source} value={source}>
+                        {source.charAt(0).toUpperCase() + source.slice(1).replace('-', ' ')}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Notes"
+                  multiline
+                  rows={3}
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  disabled={dialogMode === 'view'}
+                />
+              </Grid>
+            </Grid>
           </Box>
         </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose}>Cancel</Button>
+          {dialogMode !== 'view' && (
+            <Button onClick={handleSubmit} variant="contained">
+              {dialogMode === 'add' ? 'Add Customer' : 'Update Customer'}
+            </Button>
+          )}
+        </DialogActions>
       </Dialog>
 
+      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={3000}
+        autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} sx={{ width: '100%' }}>
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>

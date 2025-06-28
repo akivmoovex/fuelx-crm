@@ -1,72 +1,53 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { apiClient } from '../utils/api';
 
 interface User {
   id: string;
-  email: string;
   firstName: string;
   lastName: string;
+  email: string;
   role: string;
+  tenantId: string;
+  businessUnitId?: string;
+  permissions: string[];
+}
+
+interface Tenant {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
 }
 
 interface AuthContextType {
   user: User | null;
-  loading: boolean;
+  tenant: Tenant | null;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  hasPermission: (permission: string) => boolean;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
-
-interface AuthProviderProps {
-  children: ReactNode;
-}
-
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Check if user is logged in on app start
-    const token = localStorage.getItem('token');
-    if (token) {
-      // In a real app, you'd validate the token with your server
-      setUser({
-        id: '1',
-        email: 'admin@fuelx.com',
-        firstName: 'Admin',
-        lastName: 'User',
-        role: 'admin'
-      });
-    }
-    setLoading(false);
-  }, []);
+  const [tenant, setTenant] = useState<Tenant | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const login = async (email: string, password: string) => {
     try {
-      // In a real app, you'd make an API call to your server
-      if (email === 'admin@fuelx.com' && password === 'admin123') {
-        const userData = {
-          id: '1',
-          email: 'admin@fuelx.com',
-          firstName: 'Admin',
-          lastName: 'User',
-          role: 'admin'
-        };
-        
-        localStorage.setItem('token', 'dummy-token');
-        setUser(userData);
-      } else {
-        throw new Error('Invalid credentials');
-      }
+      const data = await apiClient.post<{
+        token: string;
+        user: User;
+        tenant: Tenant;
+      }>('/api/auth/login', { email, password });
+
+      localStorage.setItem('token', data.token);
+      setUser(data.user);
+      setTenant(data.tenant);
     } catch (error) {
+      console.error('Login error:', error);
       throw error;
     }
   };
@@ -74,19 +55,45 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
-    window.location.href = '/login'; // <-- This ensures redirect!
+    setTenant(null);
   };
 
-  const value = {
-    user,
-    loading,
-    login,
-    logout
+  const hasPermission = (permission: string): boolean => {
+    return user?.permissions?.includes(permission) || false;
   };
+
+  useEffect(() => {
+    // Check for existing token on app load
+    const token = localStorage.getItem('token');
+    if (token) {
+      // Verify token and get user data
+      apiClient.get<{ user: User; tenant: Tenant }>('/api/auth/me')
+        .then(data => {
+          setUser(data.user);
+          setTenant(data.tenant);
+        })
+        .catch(() => {
+          localStorage.removeItem('token');
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    } else {
+      setIsLoading(false);
+    }
+  }, []);
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ user, tenant, login, logout, hasPermission, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };

@@ -7,46 +7,123 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Tenant Management
+model Tenant {
+  id          String   @id @default(cuid())
+  name        String
+  type        TenantType
+  status      String   @default("active") // active, inactive, suspended
+  parentId    String?  // For hierarchical structure (HQ -> Sales Office)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  parent      Tenant?  @relation("TenantHierarchy", fields: [parentId], references: [id])
+  children    Tenant[] @relation("TenantHierarchy")
+  users       User[]
+  businessUnits BusinessUnit[]
+  accounts    Account[]
+  deals       Deal[]
+  tasks       Task[]
+  customers   Customer[]
+
+  @@map("tenants")
+}
+
+enum TenantType {
+  HQ
+  SALES_OFFICE
+  ACCOUNT
+  CUSTOMER
+}
+
+// Enhanced User Model with Roles and Permissions
 model User {
   id             String   @id @default(cuid())
   firstName      String
   lastName       String
   email          String   @unique
-  role           String   // 'admin', 'manager', 'account_manager', 'sales_rep', 'support'
   password       String
+  role           UserRole
+  tenantId       String
   businessUnitId String?
   status         String   @default("active")
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  
-  // Relations
-  businessUnit     BusinessUnit? @relation(fields: [businessUnitId], references: [id])
-  managedUnits     BusinessUnit[] @relation("BusinessUnitManager")
-  managedAccounts  Account[]      @relation("AccountManager")
-  deals            Deal[]
-  tasks            Task[]
-}
-
-model Customer {
-  id        String   @id @default(cuid())
-  firstName String
-  lastName  String
-  email     String   @unique
-  phone     String?
-  company   String?
-  status    String   @default("lead") // 'lead', 'prospect', 'customer', 'inactive'
-  source    String?
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
   // Relations
-  deals Deal[]
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id])
+  managedUnits   BusinessUnit[] @relation("BusinessUnitManager")
+  managedAccounts Account[]      @relation("AccountManager")
+  deals          Deal[]
+  tasks          Task[]
+  userPermissions UserPermission[]
+
+  @@map("users")
 }
 
+enum UserRole {
+  SYSTEM_ADMIN      // Can manage everything across all tenants
+  HQ_ADMIN          // HQ backoffice admin
+  MARKETING_MANAGER // Marketing team at HQ
+  FINANCE_MANAGER   // Finance team at HQ
+  ACCOUNT_MANAGER   // Account management team at HQ
+  TENANT_ADMIN      // Tenant-level admin
+  SALES_MANAGER     // Sales office manager
+  SALES_REP         // Sales representative
+  SUPPORT           // Support staff
+}
+
+// Permission System
+model Permission {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String
+  resource    String   // e.g., "accounts", "deals", "reports"
+  action      String   // e.g., "read", "write", "delete", "manage"
+  createdAt   DateTime @default(now())
+
+  // Relations
+  userPermissions UserPermission[]
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserPermission {
+  id           String     @id @default(cuid())
+  userId       String
+  permissionId String
+  granted      Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+
+  // Relations
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permissionId])
+  @@map("user_permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  role         UserRole
+  permissionId String
+  granted      Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+
+  // Relations
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([role, permissionId])
+  @@map("role_permissions")
+}
+
+// Business Units (now tenant-specific)
 model BusinessUnit {
   id        String   @id @default(cuid())
-  name      String   @unique
+  name      String
   location  String
   address   String
   city      String
@@ -55,20 +132,25 @@ model BusinessUnit {
   country   String
   phone     String
   email     String
-  managerId String
+  managerId String?
+  tenantId  String
   status    String   @default("active")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // Relations
-  manager     User      @relation("BusinessUnitManager", fields: [managerId], references: [id])
-  users       User[]
-  accounts    Account[]
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  manager   User?    @relation("BusinessUnitManager", fields: [managerId], references: [id])
+  users     User[]
+  accounts  Account[]
+
+  @@map("business_units")
 }
 
+// Accounts (now tenant-specific)
 model Account {
   id               String   @id @default(cuid())
-  name             String   @unique
+  name             String
   type             String   // 'company' or 'individual'
   registrationNumber String?
   taxNumber        String?
@@ -81,22 +163,50 @@ model Account {
   email            String
   website          String?
   status           String   @default("active")
-  businessUnitId   String
-  accountManagerId String
+  tenantId         String
+  businessUnitId   String?
+  accountManagerId String?
   creditLimit      Float    @default(0)
   paymentTerms     String
   industry         String
   notes            String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
-  
+
   // Relations
-  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
-  accountManager User         @relation("AccountManager", fields: [accountManagerId], references: [id])
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id])
+  accountManager User?    @relation("AccountManager", fields: [accountManagerId], references: [id])
   deals          Deal[]
   contactPersons ContactPerson[]
+
+  @@map("accounts")
 }
 
+// Customers (now tenant-specific)
+model Customer {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  email     String
+  phone     String?
+  company   String?
+  status    String   @default("lead")
+  source    String?
+  notes     String?
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  deals     Deal[]
+
+  @@unique([email, tenantId])
+  @@map("customers")
+}
+
+// Deals (now tenant-specific)
 model Deal {
   id          String   @id @default(cuid())
   title       String
@@ -105,21 +215,26 @@ model Deal {
   currency    String   @default("ZMW")
   stage       String
   probability Int
-  customerId  String?  // Optional - can be linked to either Customer or Account
-  accountId   String?  // Optional - can be linked to either Customer or Account
+  customerId  String?
+  accountId   String?
+  tenantId    String
+  assignedTo  String?
   dealType    String
-  assignedTo  String
-  source      String
+  source      String?
   notes       String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   // Relations
-  customer     Customer? @relation(fields: [customerId], references: [id])
-  account      Account?  @relation(fields: [accountId], references: [id])
-  assignedUser User      @relation(fields: [assignedTo], references: [id])
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  customer    Customer? @relation(fields: [customerId], references: [id])
+  account     Account?  @relation(fields: [accountId], references: [id])
+  assignedUser User?    @relation(fields: [assignedTo], references: [id])
+
+  @@map("deals")
 }
 
+// Tasks (now tenant-specific)
 model Task {
   id          String    @id @default(cuid())
   title       String
@@ -127,14 +242,19 @@ model Task {
   dueDate     DateTime?
   status      String    @default("pending")
   priority    String    @default("medium")
-  assignedTo  String
+  tenantId    String
+  assignedTo  String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-  
+
   // Relations
-  assignedUser User @relation(fields: [assignedTo], references: [id])
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  assignedUser User?   @relation(fields: [assignedTo], references: [id])
+
+  @@map("tasks")
 }
 
+// Contact Persons
 model ContactPerson {
   id        String   @id @default(cuid())
   accountId String
@@ -146,7 +266,9 @@ model ContactPerson {
   isPrimary Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // Relations
   account Account @relation(fields: [accountId], references: [id])
+
+  @@map("contact_persons")
 }

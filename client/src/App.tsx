@@ -7,11 +7,11 @@ import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Tenant from './pages/Tenant';
 import Users from './pages/Users';
 import Deals from './pages/Deals';
 import Tasks from './pages/Tasks';
 import Reports from './pages/Reports';
-import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import Accounts from './pages/Accounts';
 import BusinessUnits from './pages/BusinessUnits';
@@ -39,6 +39,7 @@ function App() {
             <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
+              <Route path="tenant" element={<Tenant />} />
               <Route path="accounts" element={<Accounts />} />
               <Route path="customers" element={<Customers />} />
               <Route path="business-units" element={<BusinessUnits />} />
@@ -47,7 +48,6 @@ function App() {
               <Route path="tasks" element={<Tasks />} />
               <Route path="reports" element={<Reports />} />
               <Route path="profile" element={<Profile />} />
-              <Route path="settings" element={<Settings />} />
             </Route>
           </Routes>
         </Router>
