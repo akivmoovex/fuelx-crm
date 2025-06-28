@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Task, User } from '../types';
 import {
   Container, Paper, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem, FormControl, InputLabel, Snackbar, Alert,
-  Chip
+  Chip, ToggleButtonGroup, ToggleButton
 } from '@mui/material';
 
 const statusOptions = ['pending', 'completed'];
 const priorityOptions = ['low', 'normal', 'high'];
 
 const Tasks: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [open, setOpen] = useState(false);
@@ -29,6 +31,9 @@ const Tasks: React.FC = () => {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'title' | 'dueDate' | 'priority' | 'status'>('dueDate');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  
+  // Get status filter from URL params
+  const statusFilter = searchParams.get('status') || 'all';
 
   // Fetch tasks
   const fetchTasks = async () => {
@@ -59,6 +64,16 @@ const Tasks: React.FC = () => {
       .then(data => setUsers(data))
       .catch(err => console.error('Error fetching users:', err));
   }, []);
+
+  // Handle status filter change
+  const handleStatusFilterChange = (newStatus: string) => {
+    if (newStatus === 'all') {
+      searchParams.delete('status');
+    } else {
+      searchParams.set('status', newStatus);
+    }
+    setSearchParams(searchParams);
+  };
 
   // Handle opening dialogs
   const handleOpenDialog = (mode: 'view' | 'edit' | 'add', task?: Task) => {
@@ -180,7 +195,10 @@ const Tasks: React.FC = () => {
     const titleMatch = task.title.toLowerCase().includes(searchLower);
     const descriptionMatch = (task.description || '').toLowerCase().includes(searchLower);
     
-    return titleMatch || descriptionMatch;
+    // Apply status filter
+    const statusMatch = statusFilter === 'all' || task.status === statusFilter;
+    
+    return (titleMatch || descriptionMatch) && statusMatch;
   });
 
   const sortedTasks = [...filteredTasks].sort((a, b) => {
@@ -256,8 +274,31 @@ const Tasks: React.FC = () => {
     <Container maxWidth="xl" sx={{ mt: 4 }}>
       <Paper sx={{ p: 3, mb: 4 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="h5">Tasks ({filteredTasks.length} of {tasks.length})</Typography>
+          <Typography variant="h5">
+            Tasks ({filteredTasks.length} of {tasks.length})
+            {statusFilter !== 'all' && ` - ${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}`}
+          </Typography>
           <Button variant="contained" onClick={() => handleOpenDialog('add')}>Add Task</Button>
+        </Box>
+        
+        {/* Status Filter Toggle Buttons */}
+        <Box sx={{ mb: 2 }}>
+          <ToggleButtonGroup
+            value={statusFilter}
+            exclusive
+            onChange={(e, newStatus) => newStatus && handleStatusFilterChange(newStatus)}
+            aria-label="task status filter"
+          >
+            <ToggleButton value="all" aria-label="all tasks">
+              All Tasks
+            </ToggleButton>
+            <ToggleButton value="pending" aria-label="pending tasks">
+              Pending
+            </ToggleButton>
+            <ToggleButton value="completed" aria-label="completed tasks">
+              Completed
+            </ToggleButton>
+          </ToggleButtonGroup>
         </Box>
         
         <TextField
@@ -271,7 +312,7 @@ const Tasks: React.FC = () => {
         {filteredTasks.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Typography variant="h6" color="textSecondary">
-              {tasks.length === 0 ? 'No tasks found' : 'No tasks match your search'}
+              {tasks.length === 0 ? 'No tasks found' : 'No tasks match your search and filter criteria'}
             </Typography>
           </Box>
         ) : (
@@ -448,7 +489,6 @@ const Tasks: React.FC = () => {
                   value={form.priority}
                   label="Priority"
                   onChange={handleFormChange}
-                  required
                   disabled={dialogMode === 'view'}
                   sx={{
                     '& .MuiSelect-select.Mui-disabled': {
@@ -475,7 +515,6 @@ const Tasks: React.FC = () => {
                   value={form.status}
                   label="Status"
                   onChange={handleFormChange}
-                  required
                   disabled={dialogMode === 'view'}
                   sx={{
                     '& .MuiSelect-select.Mui-disabled': {
@@ -515,27 +554,26 @@ const Tasks: React.FC = () => {
                 </Select>
               </FormControl>
             </Box>
-
-            {/* Only show action buttons for edit/add modes */}
-            {(dialogMode === 'edit' || dialogMode === 'add') && (
-              <DialogActions>
-                <Button onClick={handleClose}>Cancel</Button>
-                <Button type="submit" variant="contained">
-                  {dialogMode === 'edit' ? 'Update' : 'Add'}
-                </Button>
-              </DialogActions>
-            )}
           </Box>
         </DialogContent>
+        <DialogActions>
+          <Button onClick={handleClose}>Cancel</Button>
+          {dialogMode !== 'view' && (
+            <Button onClick={handleSubmit} variant="contained">
+              {dialogMode === 'edit' ? 'Update' : 'Create'}
+            </Button>
+          )}
+        </DialogActions>
       </Dialog>
 
+      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} sx={{ width: '100%' }}>
+        <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity}>
           {snackbar.message}
         </Alert>
       </Snackbar>
