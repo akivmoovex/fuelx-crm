@@ -15,28 +15,64 @@ import {
   Menu,
   MenuItem,
   Avatar,
-  Tooltip
+  Tooltip,
+  Divider
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import BusinessIcon from '@mui/icons-material/Business';
+import PeopleIcon from '@mui/icons-material/People';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import AssessmentIcon from '@mui/icons-material/Assessment';
+import GroupIcon from '@mui/icons-material/Group';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { useAuth } from '../contexts/AuthContext';
 
 const menuItems = [
-  { label: 'Dashboard', path: '/dashboard' },
-  { label: 'Customers', path: '/customers' },
-  { label: 'Users', path: '/users' },
-  { label: 'Deals', path: '/deals' },
-  { label: 'Tasks', path: '/tasks' },
-  { label: 'Reports', path: '/reports' },
-  { label: 'Settings', path: '/settings' }
+  { 
+    label: 'Dashboard', 
+    path: '/dashboard',
+    icon: <DashboardIcon />
+  },
+  { 
+    label: 'Accounts', 
+    path: '/accounts',
+    icon: <AccountCircleIcon />
+  },
+  { 
+    label: 'Customers', 
+    path: '/customers',
+    icon: <GroupIcon />
+  },
+  { 
+    label: 'Business Units', 
+    path: '/business-units',
+    icon: <BusinessIcon />
+  },
+  { 
+    label: 'Users', 
+    path: '/users',
+    icon: <PeopleIcon />
+  },
+  { 
+    label: 'Deals', 
+    path: '/deals',
+    icon: <AttachMoneyIcon />
+  },
+  { 
+    label: 'Tasks', 
+    path: '/tasks',
+    icon: <AssignmentIcon />
+  },
+  { 
+    label: 'Reports', 
+    path: '/reports',
+    icon: <AssessmentIcon />
+  }
 ];
-
-const logout = () => {
-  localStorage.removeItem('token');
-  setUser(null);
-  // Optionally, redirect:
-  window.location.href = '/login';
-};
 
 const Layout: React.FC = () => {
   const { user, logout } = useAuth();
@@ -80,7 +116,12 @@ const Layout: React.FC = () => {
                 color={location.pathname === item.path ? 'secondary' : 'inherit'}
                 component={Link}
                 to={item.path}
-                sx={{ fontWeight: location.pathname === item.path ? 700 : 400 }}
+                startIcon={item.icon}
+                sx={{ 
+                  fontWeight: location.pathname === item.path ? 700 : 400,
+                  minWidth: 'auto',
+                  px: 2
+                }}
               >
                 {item.label}
               </Button>
@@ -123,6 +164,11 @@ const Layout: React.FC = () => {
             <MenuItem component={Link} to="/profile" onClick={handleProfileMenuClose}>
               Profile
             </MenuItem>
+            <MenuItem component={Link} to="/settings" onClick={handleProfileMenuClose}>
+              <SettingsIcon sx={{ mr: 1, fontSize: 20 }} />
+              Settings
+            </MenuItem>
+            <Divider />
             <MenuItem
               onClick={() => {
                 handleProfileMenuClose();
@@ -130,7 +176,6 @@ const Layout: React.FC = () => {
               }}>
               Logout
             </MenuItem>
-
           </Menu>
         </Toolbar>
       </AppBar>
@@ -141,14 +186,34 @@ const Layout: React.FC = () => {
         onClose={() => setDrawerOpen(false)}
         sx={{ display: { sm: 'none' } }}
       >
-        <Box sx={{ width: 220 }} role="presentation" onClick={() => setDrawerOpen(false)}>
+        <Box sx={{ width: 250 }} role="presentation" onClick={() => setDrawerOpen(false)}>
           <List>
-            {menuItems.map(item => (
-              <ListItem key={item.path} disablePadding>
-                <ListItemButton component={Link} to={item.path}>
-                  <ListItemText primary={item.label} />
-                </ListItemButton>
-              </ListItem>
+            {menuItems.map((item, index) => (
+              <React.Fragment key={item.path}>
+                <ListItem disablePadding>
+                  <ListItemButton 
+                    component={Link} 
+                    to={item.path}
+                    selected={location.pathname === item.path}
+                    sx={{
+                      '&.Mui-selected': {
+                        backgroundColor: 'primary.main',
+                        color: 'primary.contrastText',
+                        '&:hover': {
+                          backgroundColor: 'primary.dark',
+                        }
+                      }
+                    }}
+                  >
+                    <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
+                      {item.icon}
+                    </Box>
+                    <ListItemText primary={item.label} />
+                  </ListItemButton>
+                </ListItem>
+                {index === 2 && <Divider />} {/* Add divider after Customers */}
+                {index === 3 && <Divider />} {/* Add divider after Business Units */}
+              </React.Fragment>
             ))}
           </List>
         </Box>

@@ -5,20 +5,20 @@ import {
   List, ListItem, ListItemText, ListItemAvatar, Avatar, Chip, Button,
   LinearProgress, CircularProgress, Alert, Divider, IconButton, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select,
-  MenuItem, FormControl, InputLabel, Snackbar, Fade, Zoom, Grow
+  MenuItem, FormControl, InputLabel, Snackbar, Fade, Zoom, Grow, Skeleton
 } from '@mui/material';
 import {
   People, TrendingUp, Business, Assignment, Email, Phone, Add,
   Notifications, CalendarToday, AttachMoney, Assessment, Timeline,
   ArrowForward, CheckCircle, Warning, Error, Info, Edit, Delete,
-  Refresh, Download, Share, FilterList, Search, Visibility
+  Refresh, Download, Share, FilterList, Search, Visibility, AccountCircle
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
-import { Deal, Customer, Task, User } from '../types';
+import { Deal, Account, Task, User } from '../types';
 
 interface DashboardData {
   summary: {
-    totalCustomers: number;
+    totalAccounts: number;
     totalDeals: number;
     totalTasks: number;
     totalRevenue: number;
@@ -27,10 +27,36 @@ interface DashboardData {
     activeDeals: number;
     closedDeals: number;
   };
-  recentDeals: Deal[];
-  recentCustomers: Customer[];
-  upcomingTasks: Task[];
-  topDeals: Deal[];
+  recentDeals: Array<{
+    id: string;
+    title: string;
+    amount: number;
+    stage: string;
+    accountId: string;
+    account?: { name: string };
+    createdAt: string;
+  }>;
+  recentAccounts: Array<{
+    id: string;
+    name: string;
+    type: string;
+    status: string;
+    createdAt: string;
+  }>;
+  upcomingTasks: Array<{
+    id: string;
+    title: string;
+    dueDate: string;
+    priority: string;
+    status: string;
+  }>;
+  topDeals: Array<{
+    id: string;
+    title: string;
+    amount: number;
+    stage: string;
+    probability: number;
+  }>;
   userStats: {
     dealsThisMonth: number;
     tasksCompleted: number;
@@ -49,7 +75,7 @@ const Dashboard: React.FC = () => {
   // Interactive states
   const [selectedDeal, setSelectedDeal] = useState<Deal | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Account | null>(null);
   const [quickActionDialog, setQuickActionDialog] = useState<string | null>(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
@@ -66,7 +92,8 @@ const Dashboard: React.FC = () => {
     priority: 'normal'
   });
 
-  // Fetch dashboard data with error handling
+  const API_BASE_URL = 'http://localhost:3001';
+
   const fetchDashboardData = async (showRefresh = false) => {
     try {
       if (showRefresh) {
@@ -76,107 +103,78 @@ const Dashboard: React.FC = () => {
       }
       setError(null);
 
-      // Fetch real data from API
-      let customers: Customer[] = [];
-      let deals: Deal[] = [];
-      let tasks: Task[] = [];
+      // Fetch data from APIs
+      const [accountsRes, dealsRes, tasksRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/accounts`),
+        fetch(`${API_BASE_URL}/api/deals`),
+        fetch(`${API_BASE_URL}/api/tasks`)
+      ]);
 
-      try {
-        // Fetch data from APIs
-        const [customersRes, dealsRes, tasksRes] = await Promise.all([
-          fetch('/api/customers'),
-          fetch('/api/deals'),
-          fetch('/api/tasks')
-        ]);
+      let accounts = [];
+      let deals = [];
+      let tasks = [];
 
-        // Check if responses are ok and parse data
-        if (customersRes.ok) {
-          customers = await customersRes.json();
-        } else {
-          console.warn('Failed to fetch customers:', customersRes.status);
-        }
+      if (accountsRes.ok) accounts = await accountsRes.json();
+      if (dealsRes.ok) deals = await dealsRes.json();
+      if (tasksRes.ok) tasks = await tasksRes.json();
 
-        if (dealsRes.ok) {
-          deals = await dealsRes.json();
-        } else {
-          console.warn('Failed to fetch deals:', dealsRes.status);
-        }
-
-        if (tasksRes.ok) {
-          tasks = await tasksRes.json();
-        } else {
-          console.warn('Failed to fetch tasks:', tasksRes.status);
-        }
-
-        // If no data was fetched, show error
-        if (customers.length === 0 && deals.length === 0 && tasks.length === 0) {
-          throw new Error('No data available from the server');
-        }
-
-      } catch (apiError) {
-        console.error('API fetch failed:', apiError);
-        throw new Error('Failed to fetch data from server. Please check your connection and try again.');
-      }
-
-      // Calculate summary data from real API data
+      // Calculate summary data
       const totalRevenue = deals
-        .filter((deal: Deal) => deal.stage === 'closed-won')
-        .reduce((sum: number, deal: Deal) => sum + deal.amount, 0);
+        .filter((deal: any) => deal.stage === 'closed-won')
+        .reduce((sum: number, deal: any) => sum + deal.amount, 0);
 
-      // Filter tasks by status for accurate counts
-      const pendingTasks = tasks.filter((task: Task) => task.status === 'pending').length;
-      const overdueTasks = tasks.filter((task: Task) => {
+      const pendingTasks = tasks.filter((task: any) => task.status === 'pending').length;
+      const overdueTasks = tasks.filter((task: any) => {
         if (!task.dueDate || task.status === 'completed') return false;
         return new Date(task.dueDate) < new Date();
       }).length;
 
-      const activeDeals = deals.filter((deal: Deal) => 
+      const activeDeals = deals.filter((deal: any) => 
         ['prospecting', 'qualification', 'proposal', 'negotiation'].includes(deal.stage)
       ).length;
 
-      const closedDeals = deals.filter((deal: Deal) => 
+      const closedDeals = deals.filter((deal: any) => 
         ['closed-won', 'closed-lost'].includes(deal.stage)
       ).length;
 
       // Get recent data
       const recentDeals = deals
-        .sort((a: Deal, b: Deal) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, 5);
 
-      const recentCustomers = customers
-        .sort((a: Customer, b: Customer) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      const recentAccounts = accounts
+        .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, 5);
 
-      // Only show pending tasks in upcoming tasks
       const upcomingTasks = tasks
-        .filter((task: Task) => task.status === 'pending')
-        .sort((a: Task, b: Task) => new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime())
+        .filter((task: any) => task.status === 'pending')
+        .sort((a: any, b: any) => new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime())
         .slice(0, 5);
 
       const topDeals = deals
-        .filter((deal: Deal) => deal.stage !== 'closed-lost')
-        .sort((a: Deal, b: Deal) => b.amount - a.amount)
+        .filter((deal: any) => deal.stage !== 'closed-lost')
+        .sort((a: any, b: any) => b.amount - a.amount)
         .slice(0, 5);
 
       // Calculate user-specific stats
-      const userDeals = deals.filter((deal: Deal) => deal.assignedTo === user?.id);
-      const userTasks = tasks.filter((task: Task) => task.assignedTo === user?.id);
+      const userDeals = deals.filter((deal: any) => deal.assignedTo === user?.id);
+      const userTasks = tasks.filter((task: any) => task.assignedTo === user?.id);
 
       const userStats = {
-        dealsThisMonth: userDeals.filter((deal: Deal) => {
+        dealsThisMonth: userDeals.filter((deal: any) => {
           const dealDate = new Date(deal.createdAt);
           const now = new Date();
           return dealDate.getMonth() === now.getMonth() && dealDate.getFullYear() === now.getFullYear();
         }).length,
-        tasksCompleted: userTasks.filter((task: Task) => task.status === 'completed').length,
+        tasksCompleted: userTasks.filter((task: any) => task.status === 'completed').length,
         revenueGenerated: userDeals
-          .filter((deal: Deal) => deal.stage === 'closed-won')
-          .reduce((sum: number, deal: Deal) => sum + deal.amount, 0)
+          .filter((deal: any) => deal.stage === 'closed-won')
+          .reduce((sum: number, deal: any) => sum + deal.amount, 0)
       };
 
       setDashboardData({
         summary: {
-          totalCustomers: customers.length,
+          totalAccounts: accounts.length,
           totalDeals: deals.length,
           totalTasks: tasks.length,
           totalRevenue,
@@ -186,21 +184,21 @@ const Dashboard: React.FC = () => {
           closedDeals
         },
         recentDeals,
-        recentCustomers,
+        recentAccounts,
         upcomingTasks,
         topDeals,
         userStats
       });
 
       if (showRefresh) {
-        setSnackbar({ open: true, message: 'Dashboard refreshed successfully!', severity: 'success' });
+        // Show success message
+        setTimeout(() => setRefreshLoading(false), 1000);
       }
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch dashboard data');
     } finally {
       setLoading(false);
-      setRefreshLoading(false);
     }
   };
 
@@ -235,15 +233,26 @@ const Dashboard: React.FC = () => {
 
       switch (quickActionForm.type) {
         case 'customer':
-          endpoint = '/api/customers';
+          endpoint = '/api/accounts';
           payload = {
-            firstName: quickActionForm.title.split(' ')[0] || '',
-            lastName: quickActionForm.title.split(' ').slice(1).join(' ') || '',
-            company: quickActionForm.description,
-            email: '',
+            name: quickActionForm.title,
+            type: 'company',
+            registrationNumber: '',
+            taxNumber: '',
+            address: '',
+            city: '',
+            state: '',
+            postalCode: '',
+            country: '',
             phone: '',
-            status: 'lead',
-            source: 'dashboard',
+            email: '',
+            website: '',
+            status: 'active',
+            businessUnitId: '',
+            accountManagerId: user?.id || '',
+            creditLimit: 0,
+            paymentTerms: 'Net 30',
+            industry: quickActionForm.description,
             notes: ''
           };
           break;
@@ -256,7 +265,7 @@ const Dashboard: React.FC = () => {
             currency: 'ZMW',
             stage: 'prospecting',
             probability: 0,
-            customerId: quickActionForm.customerId || '',
+            accountId: quickActionForm.customerId || '',
             dealType: 'fuel',
             assignedTo: user?.id,
             source: 'dashboard',
@@ -294,21 +303,21 @@ const Dashboard: React.FC = () => {
         
         setSnackbar({ 
           open: true, 
-          message: `${quickActionForm.type.charAt(0).toUpperCase() + quickActionForm.type.slice(1)} created successfully!`, 
+          message: `${quickActionForm.type === 'customer' ? 'Account' : quickActionForm.type.charAt(0).toUpperCase() + quickActionForm.type.slice(1)} created successfully!`, 
           severity: 'success' 
         });
         setQuickActionDialog(null);
         
-        // Navigate to the appropriate page to view/edit the created item
+        // Navigate to the appropriate page after creation
         switch (quickActionForm.type) {
           case 'customer':
-            navigate(`/customers/${createdItem.id}`);
+            navigate('/accounts');
             break;
           case 'deal':
-            navigate(`/deals/${createdItem.id}`);
+            navigate('/deals');
             break;
           case 'task':
-            navigate(`/tasks?status=pending`);
+            navigate('/tasks?status=pending');
             break;
         }
         
@@ -348,7 +357,7 @@ const Dashboard: React.FC = () => {
     if (path === '/tasks') {
       navigate('/tasks?status=pending');
     } else if (path === '/customers') {
-      navigate('/customers');
+      navigate('/accounts');
     } else if (path === '/deals') {
       navigate('/deals');
     } else if (path === '/reports') {
@@ -381,10 +390,9 @@ const Dashboard: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'lead': return '#ff9800';
-      case 'prospect': return '#2196f3';
-      case 'customer': return '#4caf50';
+      case 'active': return '#4caf50';
       case 'inactive': return '#f44336';
+      case 'suspended': return '#ff9800';
       default: return '#757575';
     }
   };
@@ -442,9 +450,13 @@ const Dashboard: React.FC = () => {
   if (authLoading || loading) {
     return (
       <Container maxWidth="xl" sx={{ mt: 4 }}>
-        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-          <CircularProgress />
-        </Box>
+        <Grid container spacing={3}>
+          {[...Array(8)].map((_, index) => (
+            <Grid item xs={12} sm={6} md={3} key={index}>
+              <Skeleton variant="rectangular" height={120} />
+            </Grid>
+          ))}
+        </Grid>
       </Container>
     );
   }
@@ -549,19 +561,19 @@ const Dashboard: React.FC = () => {
                 }}
                 onMouseEnter={() => setHoveredCard('customers')}
                 onMouseLeave={() => setHoveredCard(null)}
-                onClick={() => handleNavigate('/customers')}
+                onClick={() => handleNavigate('/accounts')}
               >
                 <CardContent sx={{ p: 3 }}>
                   <Box display="flex" alignItems="center" justifyContent="space-between">
                     <Box>
                       <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
-                        Total Customers
+                        Total Accounts
                       </Typography>
                       <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        {dashboardData.summary.totalCustomers}
+                        {dashboardData.summary.totalAccounts}
                       </Typography>
                       <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                        Click to view all customers
+                        Click to view all accounts
                       </Typography>
                     </Box>
                     <People sx={{ fontSize: 40, opacity: 0.8 }} />
@@ -742,7 +754,7 @@ const Dashboard: React.FC = () => {
                   title="Quick Actions" 
                   action={
                     <Tooltip title="View all pages">
-                      <IconButton size="small" onClick={() => navigate('/customers')}>
+                      <IconButton size="small" onClick={() => navigate('/accounts')}>
                         <Add />
                       </IconButton>
                     </Tooltip>
@@ -771,11 +783,11 @@ const Dashboard: React.FC = () => {
                           }
                         }}
                         onClick={() => {
-                          console.log('Add New Customer clicked');
+                          console.log('Add New Account clicked');
                           handleQuickAction('customer');
                         }}
                       >
-                        Add New Customer
+                        Add New Account
                       </Button>
                       <Button
                         variant="outlined"

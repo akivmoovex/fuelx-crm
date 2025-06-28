@@ -8,64 +8,145 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  firstName String
-  lastName  String
-  role      String
-  password  String
-  status    String @default("active")
-  deals     Deal[]   // Relation to deals
+  id             String   @id @default(cuid())
+  firstName      String
+  lastName       String
+  email          String   @unique
+  role           String   // 'admin', 'manager', 'account_manager', 'sales_rep', 'support'
+  password       String
+  businessUnitId String?
+  status         String   @default("active")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  // Relations
+  businessUnit     BusinessUnit? @relation(fields: [businessUnitId], references: [id])
+  managedUnits     BusinessUnit[] @relation("BusinessUnitManager")
+  managedAccounts  Account[]      @relation("AccountManager")
+  deals            Deal[]
+  tasks            Task[]
 }
 
 model Customer {
-  id        String   @id @default(uuid())
+  id        String   @id @default(cuid())
   firstName String
   lastName  String
-  email     String?
+  email     String   @unique
   phone     String?
-  company   String
-  status    String
-  source    String
-  notes     String
+  company   String?
+  status    String   @default("lead") // 'lead', 'prospect', 'customer', 'inactive'
+  source    String?
+  notes     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  deals     Deal[]   // Relation to deals
+
+  // Relations
+  deals Deal[]
 }
 
-model Task {
-  id          String   @id @default(uuid())
-  title       String
-  description String?
-  dueDate     DateTime?
-  status      String   @default("pending") // pending, completed, etc.
-  priority    String   @default("normal")  // low, normal, high
-  assignedTo  String?  // user id
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model BusinessUnit {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  location  String
+  address   String
+  city      String
+  state     String
+  postalCode String
+  country   String
+  phone     String
+  email     String
+  managerId String
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  manager     User      @relation("BusinessUnitManager", fields: [managerId], references: [id])
+  users       User[]
+  accounts    Account[]
+}
+
+model Account {
+  id               String   @id @default(cuid())
+  name             String   @unique
+  type             String   // 'company' or 'individual'
+  registrationNumber String?
+  taxNumber        String?
+  address          String
+  city             String
+  state            String
+  postalCode       String
+  country          String
+  phone            String
+  email            String
+  website          String?
+  status           String   @default("active")
+  businessUnitId   String
+  accountManagerId String
+  creditLimit      Float    @default(0)
+  paymentTerms     String
+  industry         String
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  // Relations
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+  accountManager User         @relation("AccountManager", fields: [accountManagerId], references: [id])
+  deals          Deal[]
+  contactPersons ContactPerson[]
 }
 
 model Deal {
-  id          String   @id @default(uuid())
+  id          String   @id @default(cuid())
   title       String
-  description String?
+  description String
   amount      Float
   currency    String   @default("ZMW")
-  stage       String   @default("prospecting") // prospecting, qualification, proposal, negotiation, closed-won, closed-lost
-  probability Int      @default(0) // 0-100 percentage
-  expectedCloseDate DateTime?
-  actualCloseDate DateTime?
-  customerId  String
-  assignedTo  String?
-  source      String?
+  stage       String
+  probability Int
+  customerId  String?  // Optional - can be linked to either Customer or Account
+  accountId   String?  // Optional - can be linked to either Customer or Account
+  dealType    String
+  assignedTo  String
+  source      String
   notes       String?
-  dealType    String   @default("fuel") // fuel, insurance
-  litresPerMonth Int?  // For fuel deals
-  insuranceType String? // For insurance deals (3rd Party, Comprehensive)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
   // Relations
-  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  assignedUser User?   @relation(fields: [assignedTo], references: [id])
+  customer     Customer? @relation(fields: [customerId], references: [id])
+  account      Account?  @relation(fields: [accountId], references: [id])
+  assignedUser User      @relation(fields: [assignedTo], references: [id])
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  dueDate     DateTime?
+  status      String    @default("pending")
+  priority    String    @default("medium")
+  assignedTo  String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  assignedUser User @relation(fields: [assignedTo], references: [id])
+}
+
+model ContactPerson {
+  id        String   @id @default(cuid())
+  accountId String
+  firstName String
+  lastName  String
+  position  String
+  phone     String
+  email     String
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  account Account @relation(fields: [accountId], references: [id])
 }

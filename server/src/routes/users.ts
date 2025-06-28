@@ -1,26 +1,48 @@
-import { Router } from 'express';
+import express from 'express';
 import { PrismaClient } from '@prisma/client';
 
-const router = Router();
+const router = express.Router();
 const prisma = new PrismaClient();
 
-// Get all users
 router.get('/', async (req, res) => {
-  const users = await prisma.user.findMany();
-  res.json(users);
-});
-
-// Add a user
-router.post('/', async (req, res) => {
   try {
-    const user = await prisma.user.create({ data: req.body });
-    res.json(user);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+    const { role, status, search } = req.query;
+    const where: any = {};
+    if (role && role !== 'all') where.role = role;
+    if (status && status !== 'all') where.status = status;
+    if (search) {
+      where.OR = [
+        { firstName: { contains: search as string, mode: 'insensitive' } },
+        { lastName: { contains: search as string, mode: 'insensitive' } },
+        { email: { contains: search as string, mode: 'insensitive' } }
+      ];
+    }
+    const users = await prisma.user.findMany({ where });
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
 
-// Edit a user
+router.get('/:id', async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch user' });
+  }
+});
+
+router.post('/', async (req, res) => {
+  try {
+    const user = await prisma.user.create({ data: req.body });
+    res.status(201).json(user);
+  } catch (error) {
+    res.status(400).json({ error: 'Failed to create user' });
+  }
+});
+
 router.put('/:id', async (req, res) => {
   try {
     const user = await prisma.user.update({
@@ -28,18 +50,17 @@ router.put('/:id', async (req, res) => {
       data: req.body
     });
     res.json(user);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+  } catch (error) {
+    res.status(400).json({ error: 'Failed to update user' });
   }
 });
 
-// Delete a user
 router.delete('/:id', async (req, res) => {
   try {
     await prisma.user.delete({ where: { id: req.params.id } });
-    res.json({ success: true });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
+    res.status(204).send();
+  } catch (error) {
+    res.status(400).json({ error: 'Failed to delete user' });
   }
 });
 
