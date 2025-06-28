@@ -15,6 +15,7 @@ model User {
   role      String
   password  String
   status    String @default("active")
+  deals     Deal[]   // Relation to deals
 }
 
 model Customer {
@@ -29,6 +30,7 @@ model Customer {
   notes     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deals     Deal[]   // Relation to deals
 }
 
 model Task {
@@ -41,4 +43,29 @@ model Task {
   assignedTo  String?  // user id
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model Deal {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  amount      Float
+  currency    String   @default("ZMW")
+  stage       String   @default("prospecting") // prospecting, qualification, proposal, negotiation, closed-won, closed-lost
+  probability Int      @default(0) // 0-100 percentage
+  expectedCloseDate DateTime?
+  actualCloseDate DateTime?
+  customerId  String
+  assignedTo  String?
+  source      String?
+  notes       String?
+  dealType    String   @default("fuel") // fuel, insurance
+  litresPerMonth Int?  // For fuel deals
+  insuranceType String? // For insurance deals (3rd Party, Comprehensive)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedUser User?   @relation(fields: [assignedTo], references: [id])
 }

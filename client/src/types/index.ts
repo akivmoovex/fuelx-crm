@@ -44,3 +44,55 @@ export interface Task {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface Deal {
+  id: string;
+  title: string;
+  description?: string;
+  amount: number;
+  currency: string;
+  stage: 'prospecting' | 'qualification' | 'proposal' | 'negotiation' | 'closed-won' | 'closed-lost';
+  probability: number;
+  expectedCloseDate?: string;
+  actualCloseDate?: string;
+  customerId: string;
+  assignedTo?: string;
+  source?: string;
+  notes?: string;
+  dealType: 'fuel' | 'insurance';
+  litresPerMonth?: number;
+  insuranceType?: string;
+  createdAt: string;
+  updatedAt: string;
+  customer?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    company: string;
+    email?: string;
+  };
+  assignedUser?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+}
+
+export interface DealFormData {
+  title: string;
+  description: string;
+  amount: string;
+  currency: string;
+  stage: 'prospecting' | 'qualification' | 'proposal' | 'negotiation' | 'closed-won' | 'closed-lost';
+  probability: string;
+  expectedCloseDate: string;
+  actualCloseDate: string;
+  customerId: string;
+  assignedTo: string;
+  source: string;
+  notes: string;
+  dealType: 'fuel' | 'insurance';
+  litresPerMonth: string;
+  insuranceType: string;
+}
