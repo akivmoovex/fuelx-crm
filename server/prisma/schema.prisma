@@ -30,3 +30,15 @@ model Customer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model Task {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  dueDate     DateTime?
+  status      String   @default("pending") // pending, completed, etc.
+  priority    String   @default("normal")  // low, normal, high
+  assignedTo  String?  // user id
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
