@@ -3,7 +3,7 @@ import {
   Container, Paper, Typography, Box, Grid, Card, CardContent, CardHeader,
   Select, MenuItem, FormControl, InputLabel, Table, TableBody, TableCell, 
   TableContainer, TableHead, TableRow, Chip, LinearProgress, CircularProgress,
-  Tabs, Tab, Alert, Button
+  Tabs, Tab, Alert, Button, Divider
 } from '@mui/material';
 import {
   TrendingUp, TrendingDown, People, Business, Assignment, 
@@ -162,7 +162,9 @@ const Reports: React.FC = () => {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'ZMW'
+      currency: 'ZMW',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
     }).format(amount);
   };
 
@@ -226,13 +228,14 @@ const Reports: React.FC = () => {
     <Container maxWidth="xl" sx={{ mt: 4 }}>
       <Paper sx={{ p: 3, mb: 4 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h5">Reports & Analytics</Typography>
+          <Typography variant="h5" sx={{ fontWeight: 'bold' }}>Reports & Analytics</Typography>
           <FormControl sx={{ minWidth: 120 }}>
             <InputLabel>Period</InputLabel>
             <Select
               value={period}
               label="Period"
               onChange={(e) => setPeriod(e.target.value)}
+              size="small"
             >
               <MenuItem value="week">This Week</MenuItem>
               <MenuItem value="month">This Month</MenuItem>
@@ -242,7 +245,21 @@ const Reports: React.FC = () => {
           </FormControl>
         </Box>
 
-        <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 3 }}>
+        <Tabs 
+          value={activeTab} 
+          onChange={handleTabChange} 
+          sx={{ 
+            mb: 4,
+            '& .MuiTab-root': {
+              minHeight: 48,
+              textTransform: 'none',
+              fontWeight: 500
+            },
+            '& .Mui-selected': {
+              fontWeight: 'bold'
+            }
+          }}
+        >
           <Tab label="Sales Performance" icon={<TrendingUp />} />
           <Tab label="Customer Analytics" icon={<People />} />
           <Tab label="Task Management" icon={<Assignment />} />
@@ -255,69 +272,97 @@ const Reports: React.FC = () => {
           <Box>
             <Grid container spacing={3} sx={{ mb: 4 }}>
               <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
+                <Card sx={{ 
+                  height: '100%',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white'
+                }}>
+                  <CardContent sx={{ p: 3 }}>
                     <Box display="flex" alignItems="center" justifyContent="space-between">
                       <Box>
-                        <Typography color="textSecondary" gutterBottom>
+                        <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
                           Total Deals
                         </Typography>
-                        <Typography variant="h4">
+                        <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
                           {salesSummary.summary.totalDeals}
                         </Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          All time deals
+                        </Typography>
                       </Box>
-                      <Business color="primary" />
+                      <Business sx={{ fontSize: 40, opacity: 0.8 }} />
                     </Box>
                   </CardContent>
                 </Card>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
+                <Card sx={{ 
+                  height: '100%',
+                  background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                  color: 'white'
+                }}>
+                  <CardContent sx={{ p: 3 }}>
                     <Box display="flex" alignItems="center" justifyContent="space-between">
                       <Box>
-                        <Typography color="textSecondary" gutterBottom>
+                        <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
                           Total Value
                         </Typography>
-                        <Typography variant="h4">
+                        <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
                           {formatCurrency(salesSummary.summary.totalValue)}
                         </Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          Pipeline value
+                        </Typography>
                       </Box>
-                      <AttachMoney color="success" />
+                      <AttachMoney sx={{ fontSize: 40, opacity: 0.8 }} />
                     </Box>
                   </CardContent>
                 </Card>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
+                <Card sx={{ 
+                  height: '100%',
+                  background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                  color: 'white'
+                }}>
+                  <CardContent sx={{ p: 3 }}>
                     <Box display="flex" alignItems="center" justifyContent="space-between">
                       <Box>
-                        <Typography color="textSecondary" gutterBottom>
+                        <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
                           Win Rate
                         </Typography>
-                        <Typography variant="h4">
+                        <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
                           {salesSummary.summary.winRate}%
                         </Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          Success rate
+                        </Typography>
                       </Box>
-                      <TrendingUp color="success" />
+                      <TrendingUp sx={{ fontSize: 40, opacity: 0.8 }} />
                     </Box>
                   </CardContent>
                 </Card>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
+                <Card sx={{ 
+                  height: '100%',
+                  background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+                  color: 'white'
+                }}>
+                  <CardContent sx={{ p: 3 }}>
                     <Box display="flex" alignItems="center" justifyContent="space-between">
                       <Box>
-                        <Typography color="textSecondary" gutterBottom>
+                        <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
                           Closed Won
                         </Typography>
-                        <Typography variant="h4">
+                        <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
                           {formatCurrency(salesSummary.summary.closedWonValue)}
                         </Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          Revenue earned
+                        </Typography>
                       </Box>
-                      <Assessment color="primary" />
+                      <Assessment sx={{ fontSize: 40, opacity: 0.8 }} />
                     </Box>
                   </CardContent>
                 </Card>
@@ -325,39 +370,54 @@ const Reports: React.FC = () => {
             </Grid>
 
             <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <CardHeader title="Deals by Stage" />
-                  <CardContent>
+              <Grid item xs={12} lg={6}>
+                <Card sx={{ height: '100%' }}>
+                  <CardHeader 
+                    title="Deals by Stage" 
+                    sx={{ 
+                      background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)',
+                      color: 'white',
+                      '& .MuiCardHeader-title': { fontWeight: 'bold' }
+                    }}
+                  />
+                  <CardContent sx={{ p: 0 }}>
                     <TableContainer>
                       <Table>
                         <TableHead>
-                          <TableRow>
-                            <TableCell>Stage</TableCell>
-                            <TableCell>Count</TableCell>
-                            <TableCell>Value</TableCell>
-                            <TableCell>Percentage</TableCell>
+                          <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Stage</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Count</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Value</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>%</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
                           {salesSummary.dealsByStage.map((stage) => (
-                            <TableRow key={stage.stage}>
+                            <TableRow key={stage.stage} hover>
                               <TableCell>
                                 <Chip
                                   label={stage.stage.charAt(0).toUpperCase() + stage.stage.slice(1)}
+                                  size="small"
                                   sx={{
                                     backgroundColor: getStageColor(stage.stage),
                                     color: '#fff',
-                                    fontWeight: 'bold'
+                                    fontWeight: 'bold',
+                                    fontSize: '0.75rem'
                                   }}
                                 />
                               </TableCell>
-                              <TableCell>{stage._count.stage}</TableCell>
-                              <TableCell>{formatCurrency(stage._sum.amount || 0)}</TableCell>
+                              <TableCell sx={{ fontWeight: 'medium' }}>
+                                {stage._count.stage}
+                              </TableCell>
+                              <TableCell sx={{ fontWeight: 'medium' }}>
+                                {formatCurrency(stage._sum.amount || 0)}
+                              </TableCell>
                               <TableCell>
-                                {salesSummary.summary.totalDeals > 0 
-                                  ? Math.round((stage._count.stage / salesSummary.summary.totalDeals) * 100)
-                                  : 0}%
+                                <Typography variant="body2" color="textSecondary">
+                                  {salesSummary.summary.totalDeals > 0 
+                                    ? Math.round((stage._count.stage / salesSummary.summary.totalDeals) * 100)
+                                    : 0}%
+                                </Typography>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -367,17 +427,24 @@ const Reports: React.FC = () => {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <CardHeader title="Top Performing Users" />
-                  <CardContent>
+              <Grid item xs={12} lg={6}>
+                <Card sx={{ height: '100%' }}>
+                  <CardHeader 
+                    title="Top Performing Users" 
+                    sx={{ 
+                      background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)',
+                      color: 'white',
+                      '& .MuiCardHeader-title': { fontWeight: 'bold' }
+                    }}
+                  />
+                  <CardContent sx={{ p: 0 }}>
                     <TableContainer>
                       <Table>
                         <TableHead>
-                          <TableRow>
-                            <TableCell>User</TableCell>
-                            <TableCell>Deals</TableCell>
-                            <TableCell>Value</TableCell>
+                          <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                            <TableCell sx={{ fontWeight: 'bold' }}>User</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Deals</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Value</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -385,10 +452,16 @@ const Reports: React.FC = () => {
                             .sort((a, b) => b.totalValue - a.totalValue)
                             .slice(0, 5)
                             .map((user) => (
-                            <TableRow key={user.userId}>
-                              <TableCell>{user.userName}</TableCell>
-                              <TableCell>{user.dealCount}</TableCell>
-                              <TableCell>{formatCurrency(user.totalValue)}</TableCell>
+                            <TableRow key={user.userId} hover>
+                              <TableCell sx={{ fontWeight: 'medium' }}>
+                                {user.userName}
+                              </TableCell>
+                              <TableCell sx={{ fontWeight: 'medium' }}>
+                                {user.dealCount}
+                              </TableCell>
+                              <TableCell sx={{ fontWeight: 'medium' }}>
+                                {formatCurrency(user.totalValue)}
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -406,18 +479,25 @@ const Reports: React.FC = () => {
           <Box>
             <Grid container spacing={3} sx={{ mb: 4 }}>
               <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
+                <Card sx={{ 
+                  height: '100%',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white'
+                }}>
+                  <CardContent sx={{ p: 3 }}>
                     <Box display="flex" alignItems="center" justifyContent="space-between">
                       <Box>
-                        <Typography color="textSecondary" gutterBottom>
+                        <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
                           Total Customers
                         </Typography>
-                        <Typography variant="h4">
+                        <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
                           {customerAnalytics.totalCustomers}
                         </Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          All customers
+                        </Typography>
                       </Box>
-                      <People color="primary" />
+                      <People sx={{ fontSize: 40, opacity: 0.8 }} />
                     </Box>
                   </CardContent>
                 </Card>
@@ -425,37 +505,50 @@ const Reports: React.FC = () => {
             </Grid>
 
             <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <CardHeader title="Customer Status Distribution" />
-                  <CardContent>
+              <Grid item xs={12} lg={6}>
+                <Card sx={{ height: '100%' }}>
+                  <CardHeader 
+                    title="Customer Status Distribution" 
+                    sx={{ 
+                      background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)',
+                      color: 'white',
+                      '& .MuiCardHeader-title': { fontWeight: 'bold' }
+                    }}
+                  />
+                  <CardContent sx={{ p: 0 }}>
                     <TableContainer>
                       <Table>
                         <TableHead>
-                          <TableRow>
-                            <TableCell>Status</TableCell>
-                            <TableCell>Count</TableCell>
-                            <TableCell>Percentage</TableCell>
+                          <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Count</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>%</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
                           {customerAnalytics.statusDistribution.map((status) => (
-                            <TableRow key={status.status}>
+                            <TableRow key={status.status} hover>
                               <TableCell>
                                 <Chip
                                   label={status.status.charAt(0).toUpperCase() + status.status.slice(1)}
+                                  size="small"
                                   sx={{
                                     backgroundColor: getStatusColor(status.status),
                                     color: '#fff',
-                                    fontWeight: 'bold'
+                                    fontWeight: 'bold',
+                                    fontSize: '0.75rem'
                                   }}
                                 />
                               </TableCell>
-                              <TableCell>{status._count.status}</TableCell>
+                              <TableCell sx={{ fontWeight: 'medium' }}>
+                                {status._count.status}
+                              </TableCell>
                               <TableCell>
-                                {customerAnalytics.totalCustomers > 0 
-                                  ? Math.round((status._count.status / customerAnalytics.totalCustomers) * 100)
-                                  : 0}%
+                                <Typography variant="body2" color="textSecondary">
+                                  {customerAnalytics.totalCustomers > 0 
+                                    ? Math.round((status._count.status / customerAnalytics.totalCustomers) * 100)
+                                    : 0}%
+                                </Typography>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -465,27 +558,40 @@ const Reports: React.FC = () => {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <CardHeader title="Top Customers by Value" />
-                  <CardContent>
+              <Grid item xs={12} lg={6}>
+                <Card sx={{ height: '100%' }}>
+                  <CardHeader 
+                    title="Top Customers by Value" 
+                    sx={{ 
+                      background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)',
+                      color: 'white',
+                      '& .MuiCardHeader-title': { fontWeight: 'bold' }
+                    }}
+                  />
+                  <CardContent sx={{ p: 0 }}>
                     <TableContainer>
                       <Table>
                         <TableHead>
-                          <TableRow>
-                            <TableCell>Customer</TableCell>
-                            <TableCell>Company</TableCell>
-                            <TableCell>Deals</TableCell>
-                            <TableCell>Value</TableCell>
+                          <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Customer</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Company</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Value</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
                           {customerAnalytics.topCustomers.map((customer) => (
-                            <TableRow key={customer.customerId}>
-                              <TableCell>{customer.customerName}</TableCell>
-                              <TableCell>{customer.company}</TableCell>
-                              <TableCell>{customer.dealCount}</TableCell>
-                              <TableCell>{formatCurrency(customer.totalValue)}</TableCell>
+                            <TableRow key={customer.customerId} hover>
+                              <TableCell sx={{ fontWeight: 'medium' }}>
+                                {customer.customerName}
+                              </TableCell>
+                              <TableCell>
+                                <Typography variant="body2" color="textSecondary">
+                                  {customer.company}
+                                </Typography>
+                              </TableCell>
+                              <TableCell sx={{ fontWeight: 'medium' }}>
+                                {formatCurrency(customer.totalValue)}
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -503,71 +609,99 @@ const Reports: React.FC = () => {
           <Box>
             <Grid container spacing={3} sx={{ mb: 4 }}>
               <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
+                <Card sx={{ 
+                  height: '100%',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white'
+                }}>
+                  <CardContent sx={{ p: 3 }}>
                     <Box display="flex" alignItems="center" justifyContent="space-between">
                       <Box>
-                        <Typography color="textSecondary" gutterBottom>
+                        <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
                           Total Tasks
                         </Typography>
-                        <Typography variant="h4">
+                        <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
                           {taskAnalytics.totalTasks}
                         </Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          All tasks
+                        </Typography>
                       </Box>
-                      <Assignment color="primary" />
+                      <Assignment sx={{ fontSize: 40, opacity: 0.8 }} />
                     </Box>
                   </CardContent>
                 </Card>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
+                <Card sx={{ 
+                  height: '100%',
+                  background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+                  color: 'white'
+                }}>
+                  <CardContent sx={{ p: 3 }}>
                     <Box display="flex" alignItems="center" justifyContent="space-between">
                       <Box>
-                        <Typography color="textSecondary" gutterBottom>
+                        <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
                           Completed
                         </Typography>
-                        <Typography variant="h4">
+                        <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
                           {taskAnalytics.completedTasks}
                         </Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          Finished tasks
+                        </Typography>
                       </Box>
-                      <TrendingUp color="success" />
+                      <TrendingUp sx={{ fontSize: 40, opacity: 0.8 }} />
                     </Box>
                   </CardContent>
                 </Card>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
+                <Card sx={{ 
+                  height: '100%',
+                  background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                  color: 'white'
+                }}>
+                  <CardContent sx={{ p: 3 }}>
                     <Box display="flex" alignItems="center" justifyContent="space-between">
                       <Box>
-                        <Typography color="textSecondary" gutterBottom>
+                        <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
                           Overdue
                         </Typography>
-                        <Typography variant="h4" color="error">
+                        <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
                           {taskAnalytics.overdueTasks}
                         </Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          Past due
+                        </Typography>
                       </Box>
-                      <TrendingDown color="error" />
+                      <TrendingDown sx={{ fontSize: 40, opacity: 0.8 }} />
                     </Box>
                   </CardContent>
                 </Card>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
+                <Card sx={{ 
+                  height: '100%',
+                  background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                  color: 'white'
+                }}>
+                  <CardContent sx={{ p: 3 }}>
                     <Box display="flex" alignItems="center" justifyContent="space-between">
                       <Box>
-                        <Typography color="textSecondary" gutterBottom>
+                        <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
                           Completion Rate
                         </Typography>
-                        <Typography variant="h4">
+                        <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
                           {taskAnalytics.totalTasks > 0 
                             ? Math.round((taskAnalytics.completedTasks / taskAnalytics.totalTasks) * 100)
                             : 0}%
                         </Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          Success rate
+                        </Typography>
                       </Box>
-                      <Assessment color="primary" />
+                      <Assessment sx={{ fontSize: 40, opacity: 0.8 }} />
                     </Box>
                   </CardContent>
                 </Card>
@@ -575,37 +709,50 @@ const Reports: React.FC = () => {
             </Grid>
 
             <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <CardHeader title="Task Status Distribution" />
-                  <CardContent>
+              <Grid item xs={12} lg={6}>
+                <Card sx={{ height: '100%' }}>
+                  <CardHeader 
+                    title="Task Status Distribution" 
+                    sx={{ 
+                      background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)',
+                      color: 'white',
+                      '& .MuiCardHeader-title': { fontWeight: 'bold' }
+                    }}
+                  />
+                  <CardContent sx={{ p: 0 }}>
                     <TableContainer>
                       <Table>
                         <TableHead>
-                          <TableRow>
-                            <TableCell>Status</TableCell>
-                            <TableCell>Count</TableCell>
-                            <TableCell>Percentage</TableCell>
+                          <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Count</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>%</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
                           {taskAnalytics.statusDistribution.map((status) => (
-                            <TableRow key={status.status}>
+                            <TableRow key={status.status} hover>
                               <TableCell>
                                 <Chip
                                   label={status.status.charAt(0).toUpperCase() + status.status.slice(1)}
+                                  size="small"
                                   sx={{
                                     backgroundColor: getStatusColor(status.status),
                                     color: '#fff',
-                                    fontWeight: 'bold'
+                                    fontWeight: 'bold',
+                                    fontSize: '0.75rem'
                                   }}
                                 />
                               </TableCell>
-                              <TableCell>{status._count.status}</TableCell>
+                              <TableCell sx={{ fontWeight: 'medium' }}>
+                                {status._count.status}
+                              </TableCell>
                               <TableCell>
-                                {taskAnalytics.totalTasks > 0 
-                                  ? Math.round((status._count.status / taskAnalytics.totalTasks) * 100)
-                                  : 0}%
+                                <Typography variant="body2" color="textSecondary">
+                                  {taskAnalytics.totalTasks > 0 
+                                    ? Math.round((status._count.status / taskAnalytics.totalTasks) * 100)
+                                    : 0}%
+                                </Typography>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -615,33 +762,51 @@ const Reports: React.FC = () => {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <CardHeader title="User Task Load" />
-                  <CardContent>
+              <Grid item xs={12} lg={6}>
+                <Card sx={{ height: '100%' }}>
+                  <CardHeader 
+                    title="User Task Load" 
+                    sx={{ 
+                      background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)',
+                      color: 'white',
+                      '& .MuiCardHeader-title': { fontWeight: 'bold' }
+                    }}
+                  />
+                  <CardContent sx={{ p: 0 }}>
                     <TableContainer>
                       <Table>
                         <TableHead>
-                          <TableRow>
-                            <TableCell>User</TableCell>
-                            <TableCell>Tasks</TableCell>
-                            <TableCell>Load</TableCell>
+                          <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                            <TableCell sx={{ fontWeight: 'bold' }}>User</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Tasks</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Load</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
                           {taskAnalytics.userTaskLoad
                             .sort((a, b) => b.taskCount - a.taskCount)
                             .map((user) => (
-                            <TableRow key={user.userId}>
-                              <TableCell>{user.userName}</TableCell>
-                              <TableCell>{user.taskCount}</TableCell>
+                            <TableRow key={user.userId} hover>
+                              <TableCell sx={{ fontWeight: 'medium' }}>
+                                {user.userName}
+                              </TableCell>
+                              <TableCell sx={{ fontWeight: 'medium' }}>
+                                {user.taskCount}
+                              </TableCell>
                               <TableCell>
                                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                   <Box sx={{ width: '100%', mr: 1 }}>
                                     <LinearProgress 
                                       variant="determinate" 
                                       value={Math.min((user.taskCount / Math.max(...taskAnalytics.userTaskLoad.map(u => u.taskCount))) * 100, 100)}
-                                      sx={{ height: 8, borderRadius: 5 }}
+                                      sx={{ 
+                                        height: 8, 
+                                        borderRadius: 5,
+                                        backgroundColor: '#e0e0e0',
+                                        '& .MuiLinearProgress-bar': {
+                                          borderRadius: 5
+                                        }
+                                      }}
                                     />
                                   </Box>
                                   <Box sx={{ minWidth: 35 }}>
@@ -668,38 +833,55 @@ const Reports: React.FC = () => {
           <Box>
             <Grid container spacing={3}>
               <Grid item xs={12}>
-                <Card>
-                  <CardHeader title="Pipeline by Stage" />
-                  <CardContent>
+                <Card sx={{ height: '100%' }}>
+                  <CardHeader 
+                    title="Pipeline by Stage" 
+                    sx={{ 
+                      background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)',
+                      color: 'white',
+                      '& .MuiCardHeader-title': { fontWeight: 'bold' }
+                    }}
+                  />
+                  <CardContent sx={{ p: 0 }}>
                     <TableContainer>
                       <Table>
                         <TableHead>
-                          <TableRow>
-                            <TableCell>Stage</TableCell>
-                            <TableCell>Count</TableCell>
-                            <TableCell>Total Value</TableCell>
-                            <TableCell>Average Value</TableCell>
-                            <TableCell>Avg Time (Days)</TableCell>
+                          <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Stage</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Count</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Total Value</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Avg Value</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Avg Time (Days)</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
                           {pipelineAnalysis.pipelineByStage.map((stage) => (
-                            <TableRow key={stage.stage}>
+                            <TableRow key={stage.stage} hover>
                               <TableCell>
                                 <Chip
                                   label={stage.stage.charAt(0).toUpperCase() + stage.stage.slice(1)}
+                                  size="small"
                                   sx={{
                                     backgroundColor: getStageColor(stage.stage),
                                     color: '#fff',
-                                    fontWeight: 'bold'
+                                    fontWeight: 'bold',
+                                    fontSize: '0.75rem'
                                   }}
                                 />
                               </TableCell>
-                              <TableCell>{stage.count}</TableCell>
-                              <TableCell>{formatCurrency(stage.totalValue)}</TableCell>
-                              <TableCell>{formatCurrency(stage.avgValue)}</TableCell>
+                              <TableCell sx={{ fontWeight: 'medium' }}>
+                                {stage.count}
+                              </TableCell>
+                              <TableCell sx={{ fontWeight: 'medium' }}>
+                                {formatCurrency(stage.totalValue)}
+                              </TableCell>
+                              <TableCell sx={{ fontWeight: 'medium' }}>
+                                {formatCurrency(stage.avgValue)}
+                              </TableCell>
                               <TableCell>
-                                {pipelineAnalysis.timeInStage.find(t => t.stage === stage.stage)?.avgTimeInDays || 0}
+                                <Typography variant="body2" color="textSecondary">
+                                  {pipelineAnalysis.timeInStage.find(t => t.stage === stage.stage)?.avgTimeInDays || 0}
+                                </Typography>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -710,43 +892,54 @@ const Reports: React.FC = () => {
                 </Card>
               </Grid>
               <Grid item xs={12}>
-                <Card>
-                  <CardHeader title="Stage Conversion Rates" />
-                  <CardContent>
+                <Card sx={{ height: '100%' }}>
+                  <CardHeader 
+                    title="Stage Conversion Rates" 
+                    sx={{ 
+                      background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)',
+                      color: 'white',
+                      '& .MuiCardHeader-title': { fontWeight: 'bold' }
+                    }}
+                  />
+                  <CardContent sx={{ p: 0 }}>
                     <TableContainer>
                       <Table>
                         <TableHead>
-                          <TableRow>
-                            <TableCell>From Stage</TableCell>
-                            <TableCell>To Stage</TableCell>
-                            <TableCell>Conversion Rate</TableCell>
+                          <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                            <TableCell sx={{ fontWeight: 'bold' }}>From Stage</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>To Stage</TableCell>
+                            <TableCell sx={{ fontWeight: 'bold' }}>Conversion Rate</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
                           {pipelineAnalysis.conversionRates.map((conversion, index) => (
-                            <TableRow key={index}>
+                            <TableRow key={index} hover>
                               <TableCell>
                                 <Chip
                                   label={conversion.fromStage.charAt(0).toUpperCase() + conversion.fromStage.slice(1)}
+                                  size="small"
                                   sx={{
                                     backgroundColor: getStageColor(conversion.fromStage),
                                     color: '#fff',
-                                    fontWeight: 'bold'
+                                    fontWeight: 'bold',
+                                    fontSize: '0.75rem'
                                   }}
                                 />
                               </TableCell>
                               <TableCell>
                                 <Chip
                                   label={conversion.toStage.charAt(0).toUpperCase() + conversion.toStage.slice(1)}
+                                  size="small"
                                   sx={{
                                     backgroundColor: getStageColor(conversion.toStage),
                                     color: '#fff',
-                                    fontWeight: 'bold'
+                                    fontWeight: 'bold',
+                                    fontSize: '0.75rem'
                                   }}
                                 />
                               </TableCell>
                               <TableCell>
-                                <Typography variant="h6" color="primary">
+                                <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>
                                   {conversion.conversionRate}%
                                 </Typography>
                               </TableCell>
@@ -767,69 +960,97 @@ const Reports: React.FC = () => {
           <Box>
             <Grid container spacing={3} sx={{ mb: 4 }}>
               <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
+                <Card sx={{ 
+                  height: '100%',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white'
+                }}>
+                  <CardContent sx={{ p: 3 }}>
                     <Box display="flex" alignItems="center" justifyContent="space-between">
                       <Box>
-                        <Typography color="textSecondary" gutterBottom>
+                        <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
                           Total Pipeline
                         </Typography>
-                        <Typography variant="h4">
+                        <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
                           {formatCurrency(revenueForecast.totalPipelineValue)}
                         </Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          All deals
+                        </Typography>
                       </Box>
-                      <BarChart color="primary" />
+                      <BarChart sx={{ fontSize: 40, opacity: 0.8 }} />
                     </Box>
                   </CardContent>
                 </Card>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
+                <Card sx={{ 
+                  height: '100%',
+                  background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                  color: 'white'
+                }}>
+                  <CardContent sx={{ p: 3 }}>
                     <Box display="flex" alignItems="center" justifyContent="space-between">
                       <Box>
-                        <Typography color="textSecondary" gutterBottom>
+                        <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
                           Weighted Pipeline
                         </Typography>
-                        <Typography variant="h4">
+                        <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
                           {formatCurrency(revenueForecast.weightedPipelineValue)}
                         </Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          Probability adjusted
+                        </Typography>
                       </Box>
-                      <PieChart color="success" />
+                      <PieChart sx={{ fontSize: 40, opacity: 0.8 }} />
                     </Box>
                   </CardContent>
                 </Card>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
+                <Card sx={{ 
+                  height: '100%',
+                  background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                  color: 'white'
+                }}>
+                  <CardContent sx={{ p: 3 }}>
                     <Box display="flex" alignItems="center" justifyContent="space-between">
                       <Box>
-                        <Typography color="textSecondary" gutterBottom>
+                        <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
                           This Month
                         </Typography>
-                        <Typography variant="h4">
+                        <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
                           {formatCurrency(revenueForecast.expectedRevenueThisMonth)}
                         </Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          Expected revenue
+                        </Typography>
                       </Box>
-                      <TrendingUp color="success" />
+                      <TrendingUp sx={{ fontSize: 40, opacity: 0.8 }} />
                     </Box>
                   </CardContent>
                 </Card>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
-                <Card>
-                  <CardContent>
+                <Card sx={{ 
+                  height: '100%',
+                  background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+                  color: 'white'
+                }}>
+                  <CardContent sx={{ p: 3 }}>
                     <Box display="flex" alignItems="center" justifyContent="space-between">
                       <Box>
-                        <Typography color="textSecondary" gutterBottom>
+                        <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
                           Next Month
                         </Typography>
-                        <Typography variant="h4">
+                        <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
                           {formatCurrency(revenueForecast.expectedRevenueNextMonth)}
                         </Typography>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                          Expected revenue
+                        </Typography>
                       </Box>
-                      <Timeline color="primary" />
+                      <Timeline sx={{ fontSize: 40, opacity: 0.8 }} />
                     </Box>
                   </CardContent>
                 </Card>
@@ -838,27 +1059,47 @@ const Reports: React.FC = () => {
 
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
-                <Card>
-                  <CardHeader title="Deals Closing This Month" />
-                  <CardContent>
-                    <Typography variant="h3" color="primary" gutterBottom>
+                <Card sx={{ height: '100%' }}>
+                  <CardHeader 
+                    title="Deals Closing This Month" 
+                    sx={{ 
+                      background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)',
+                      color: 'white',
+                      '& .MuiCardHeader-title': { fontWeight: 'bold' }
+                    }}
+                  />
+                  <CardContent sx={{ p: 3, textAlign: 'center' }}>
+                    <Typography variant="h2" color="primary" sx={{ fontWeight: 'bold', mb: 2 }}>
                       {revenueForecast.dealsClosingThisMonth}
                     </Typography>
-                    <Typography variant="body1" color="textSecondary">
-                      Expected revenue: {formatCurrency(revenueForecast.expectedRevenueThisMonth)}
+                    <Typography variant="h6" color="textSecondary" sx={{ mb: 1 }}>
+                      Expected Revenue
+                    </Typography>
+                    <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#4caf50' }}>
+                      {formatCurrency(revenueForecast.expectedRevenueThisMonth)}
                     </Typography>
                   </CardContent>
                 </Card>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Card>
-                  <CardHeader title="Deals Closing Next Month" />
-                  <CardContent>
-                    <Typography variant="h3" color="primary" gutterBottom>
+                <Card sx={{ height: '100%' }}>
+                  <CardHeader 
+                    title="Deals Closing Next Month" 
+                    sx={{ 
+                      background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)',
+                      color: 'white',
+                      '& .MuiCardHeader-title': { fontWeight: 'bold' }
+                    }}
+                  />
+                  <CardContent sx={{ p: 3, textAlign: 'center' }}>
+                    <Typography variant="h2" color="primary" sx={{ fontWeight: 'bold', mb: 2 }}>
                       {revenueForecast.dealsClosingNextMonth}
                     </Typography>
-                    <Typography variant="body1" color="textSecondary">
-                      Expected revenue: {formatCurrency(revenueForecast.expectedRevenueNextMonth)}
+                    <Typography variant="h6" color="textSecondary" sx={{ mb: 1 }}>
+                      Expected Revenue
+                    </Typography>
+                    <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#4caf50' }}>
+                      {formatCurrency(revenueForecast.expectedRevenueNextMonth)}
                     </Typography>
                   </CardContent>
                 </Card>
