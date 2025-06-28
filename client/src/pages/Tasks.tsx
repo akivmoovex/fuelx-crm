@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Task, User } from '../types';
 import {
   Container, Paper, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem, FormControl, InputLabel, Snackbar, Alert
+  Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem, FormControl, InputLabel, Snackbar, Alert,
+  Chip
 } from '@mui/material';
 
 const statusOptions = ['pending', 'completed'];
@@ -10,27 +11,42 @@ const priorityOptions = ['low', 'normal', 'high'];
 
 const Tasks: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [open, setOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [form, setForm] = useState<Omit<Task, 'id' | 'createdAt' | 'updatedAt'>>({
+  const [dialogMode, setDialogMode] = useState<'view' | 'edit' | 'add'>('add');
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState({
     title: '',
     description: '',
     dueDate: '',
-    status: 'pending',
-    priority: 'normal',
+    status: 'pending' as const,
+    priority: 'normal' as const,
     assignedTo: ''
   });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
-  const [usersList, setUsersList] = useState<User[]>([]);
   const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState<'dueDate' | 'title' | 'priority' | 'status'>('dueDate');
+  const [sortBy, setSortBy] = useState<'title' | 'dueDate' | 'priority' | 'status'>('dueDate');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Fetch tasks
-  const fetchTasks = () => {
-    fetch('/api/tasks')
-      .then(res => res.json())
-      .then(data => setTasks(data));
+  const fetchTasks = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch('/api/tasks');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setTasks(data);
+    } catch (err) {
+      console.error('Error fetching tasks:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch tasks');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -40,12 +56,16 @@ const Tasks: React.FC = () => {
   useEffect(() => {
     fetch('/api/users')
       .then(res => res.json())
-      .then(data => setUsersList(data));
+      .then(data => setUsers(data))
+      .catch(err => console.error('Error fetching users:', err));
   }, []);
 
-  const handleOpen = (task?: Task) => {
-    if (task) {
-      setEditingTask(task);
+  // Handle opening dialogs
+  const handleOpenDialog = (mode: 'view' | 'edit' | 'add', task?: Task) => {
+    setDialogMode(mode);
+    setSelectedTask(task || null);
+    
+    if (mode === 'view' && task) {
       setForm({
         title: task.title,
         description: task.description || '',
@@ -54,8 +74,18 @@ const Tasks: React.FC = () => {
         priority: task.priority,
         assignedTo: task.assignedTo || ''
       });
-    } else {
-      setEditingTask(null);
+      setOpen(true);
+    } else if (mode === 'edit' && task) {
+      setForm({
+        title: task.title,
+        description: task.description || '',
+        dueDate: task.dueDate ? task.dueDate.slice(0, 10) : '',
+        status: task.status,
+        priority: task.priority,
+        assignedTo: task.assignedTo || ''
+      });
+      setOpen(true);
+    } else if (mode === 'add') {
       setForm({
         title: '',
         description: '',
@@ -64,13 +94,14 @@ const Tasks: React.FC = () => {
         priority: 'normal',
         assignedTo: ''
       });
+      setOpen(true);
     }
-    setOpen(true);
   };
 
   const handleClose = () => {
     setOpen(false);
-    setEditingTask(null);
+    setSelectedTask(null);
+    setDialogMode('add');
   };
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
@@ -78,9 +109,6 @@ const Tasks: React.FC = () => {
     const value = (e.target as HTMLInputElement).value;
     setForm({ ...form, [name]: value });
   };
-
-  const handleStatusChange = (e: any) => setForm({ ...form, status: e.target.value });
-  const handlePriorityChange = (e: any) => setForm({ ...form, priority: e.target.value });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,57 +121,72 @@ const Tasks: React.FC = () => {
 
     const payload = { ...form, dueDate };
 
-    if (editingTask) {
-      // Edit task
-      const res = await fetch(`/api/tasks/${editingTask.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (res.ok) {
-        setSnackbar({ open: true, message: 'Task updated!', severity: 'success' });
-        fetchTasks();
-      } else {
-        setSnackbar({ open: true, message: 'Failed to update task.', severity: 'error' });
+    try {
+      if (dialogMode === 'edit' && selectedTask) {
+        const res = await fetch(`/api/tasks/${selectedTask.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          setSnackbar({ open: true, message: 'Task updated successfully!', severity: 'success' });
+          fetchTasks();
+          handleClose();
+        } else {
+          const errorData = await res.json();
+          setSnackbar({ open: true, message: `Failed to update task: ${errorData.error}`, severity: 'error' });
+        }
+      } else if (dialogMode === 'add') {
+        const res = await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          setSnackbar({ open: true, message: 'Task added successfully!', severity: 'success' });
+          fetchTasks();
+          handleClose();
+        } else {
+          const errorData = await res.json();
+          setSnackbar({ open: true, message: `Failed to add task: ${errorData.error}`, severity: 'error' });
+        }
       }
-    } else {
-      // Add task
-      const res = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      if (res.ok) {
-        setSnackbar({ open: true, message: 'Task added!', severity: 'success' });
-        fetchTasks();
-      } else {
-        setSnackbar({ open: true, message: 'Failed to add task.', severity: 'error' });
-      }
+    } catch (error) {
+      console.error('Error submitting task:', error);
+      setSnackbar({ open: true, message: 'An error occurred while saving the task.', severity: 'error' });
     }
-    setOpen(false);
-    setEditingTask(null);
   };
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this task?')) return;
-    const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
-    if (res.ok) {
-      setSnackbar({ open: true, message: 'Task deleted!', severity: 'success' });
-      fetchTasks();
-    } else {
-      setSnackbar({ open: true, message: 'Failed to delete task.', severity: 'error' });
+    
+    try {
+      const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setSnackbar({ open: true, message: 'Task deleted successfully!', severity: 'success' });
+        fetchTasks();
+      } else {
+        setSnackbar({ open: true, message: 'Failed to delete task.', severity: 'error' });
+      }
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      setSnackbar({ open: true, message: 'An error occurred while deleting the task.', severity: 'error' });
     }
   };
 
   // Filtering and sorting
-  const filteredTasks = tasks.filter(task =>
-    task.title.toLowerCase().includes(search.toLowerCase()) ||
-    (task.description || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredTasks = tasks.filter(task => {
+    const searchLower = search.toLowerCase();
+    const titleMatch = task.title.toLowerCase().includes(searchLower);
+    const descriptionMatch = (task.description || '').toLowerCase().includes(searchLower);
+    
+    return titleMatch || descriptionMatch;
+  });
 
   const sortedTasks = [...filteredTasks].sort((a, b) => {
     let aValue = a[sortBy] || '';
     let bValue = b[sortBy] || '';
+    
     if (sortBy === 'dueDate') {
       aValue = aValue || '';
       bValue = bValue || '';
@@ -151,6 +194,7 @@ const Tasks: React.FC = () => {
         ? new Date(aValue).getTime() - new Date(bValue).getTime()
         : new Date(bValue).getTime() - new Date(aValue).getTime();
     }
+    
     if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
     if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
     return 0;
@@ -162,17 +206,60 @@ const Tasks: React.FC = () => {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       setSortBy(column);
-      setSortDirection(column === 'dueDate' ? 'desc' : 'asc'); // Default: dueDate desc, others asc
+      setSortDirection(column === 'dueDate' ? 'desc' : 'asc');
     }
   };
 
+  // Get priority color
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return '#f44336';
+      case 'normal': return '#ff9800';
+      case 'low': return '#4caf50';
+      default: return '#757575';
+    }
+  };
+
+  // Get status color
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return '#ff9800';
+      case 'completed': return '#4caf50';
+      default: return '#757575';
+    }
+  };
+
+  // Format date
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  if (loading) {
+    return (
+      <Container maxWidth="xl" sx={{ mt: 4 }}>
+        <Typography>Loading tasks...</Typography>
+      </Container>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container maxWidth="xl" sx={{ mt: 4 }}>
+        <Typography color="error">Error: {error}</Typography>
+        <Button onClick={fetchTasks} sx={{ mt: 2 }}>Retry</Button>
+      </Container>
+    );
+  }
+
   return (
-    <Container maxWidth="md" sx={{ mt: 4 }}>
+    <Container maxWidth="xl" sx={{ mt: 4 }}>
       <Paper sx={{ p: 3, mb: 4 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <Typography variant="h5">Tasks</Typography>
-          <Button variant="contained" onClick={() => handleOpen()}>Add Task</Button>
+          <Typography variant="h5">Tasks ({filteredTasks.length} of {tasks.length})</Typography>
+          <Button variant="contained" onClick={() => handleOpenDialog('add')}>Add Task</Button>
         </Box>
+        
         <TextField
           label="Search Tasks"
           value={search}
@@ -180,104 +267,126 @@ const Tasks: React.FC = () => {
           sx={{ mb: 2 }}
           fullWidth
         />
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow
-                sx={{
-                  background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)'
-                }}
-              >
-                <TableCell
-                  onClick={() => handleSort('title')}
-                  sx={{ color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
-                >
-                  Title {sortBy === 'title' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
-                </TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Description</TableCell>
-                <TableCell
-                  onClick={() => handleSort('dueDate')}
-                  sx={{ color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
-                >
-                  Due Date {sortBy === 'dueDate' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
-                </TableCell>
-                <TableCell
-                  onClick={() => handleSort('status')}
-                  sx={{ color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
-                >
-                  Status {sortBy === 'status' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
-                </TableCell>
-                <TableCell
-                  onClick={() => handleSort('priority')}
-                  sx={{ color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
-                >
-                  Priority {sortBy === 'priority' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
-                </TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Assigned To</TableCell>
-                <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {sortedTasks.map(task => (
+        
+        {filteredTasks.length === 0 ? (
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <Typography variant="h6" color="textSecondary">
+              {tasks.length === 0 ? 'No tasks found' : 'No tasks match your search'}
+            </Typography>
+          </Box>
+        ) : (
+          <TableContainer>
+            <Table>
+              <TableHead>
                 <TableRow
-                  key={task.id}
-                  hover
-                  sx={{ cursor: 'pointer' }}
-                  onClick={e => {
-                    if ((e.target as HTMLElement).closest('.actions-cell')) return;
-                    handleOpen(task);
+                  sx={{
+                    background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)'
                   }}
                 >
-                  <TableCell>{task.title}</TableCell>
-                  <TableCell>{task.description}</TableCell>
-                  <TableCell>{task.dueDate ? task.dueDate.slice(0, 10) : ''}</TableCell>
                   <TableCell
-                    sx={
-                      task.status === 'pending'
-                        ? { background: '#388e3c', color: '#fff', fontWeight: 'bold' }
-                        : undefined
-                    }
+                    onClick={() => handleSort('title')}
+                    sx={{ color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
                   >
-                    {task.status.charAt(0).toUpperCase() + task.status.slice(1)}
+                    Title {sortBy === 'title' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+                  </TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Description</TableCell>
+                  <TableCell
+                    onClick={() => handleSort('dueDate')}
+                    sx={{ color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+                  >
+                    Due Date {sortBy === 'dueDate' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
                   </TableCell>
                   <TableCell
-                    sx={
-                      task.priority === 'high'
-                        ? { background: '#d32f2f', color: '#fff', fontWeight: 'bold' }
-                        : undefined
-                    }
+                    onClick={() => handleSort('priority')}
+                    sx={{ color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
                   >
-                    {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                    Priority {sortBy === 'priority' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
                   </TableCell>
-                  <TableCell>
-                    {usersList.find(u => u.id === task.assignedTo)
-                      ? `${usersList.find(u => u.id === task.assignedTo)?.firstName} ${usersList.find(u => u.id === task.assignedTo)?.lastName}`
-                      : ''}
+                  <TableCell
+                    onClick={() => handleSort('status')}
+                    sx={{ color: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+                  >
+                    Status {sortBy === 'status' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
                   </TableCell>
-                  <TableCell className="actions-cell" onClick={e => e.stopPropagation()}>
-                    <Button size="small" onClick={() => handleOpen(task)}>Edit</Button>
-                    <Button size="small" color="error" onClick={() => handleDelete(task.id)}>Delete</Button>
-                  </TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Assigned To</TableCell>
+                  <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Actions</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {sortedTasks.map(task => (
+                  <TableRow
+                    key={task.id}
+                    hover
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => handleOpenDialog('view', task)}
+                  >
+                    <TableCell>
+                      <Typography variant="body1" fontWeight="medium">
+                        {task.title}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {task.description ? (
+                        <Typography variant="body2" color="textSecondary" sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {task.description}
+                        </Typography>
+                      ) : '-'}
+                    </TableCell>
+                    <TableCell>{formatDate(task.dueDate)}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                        sx={{
+                          backgroundColor: getPriorityColor(task.priority),
+                          color: '#fff',
+                          fontWeight: 'bold'
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={task.status.charAt(0).toUpperCase() + task.status.slice(1)}
+                        sx={{
+                          backgroundColor: getStatusColor(task.status),
+                          color: '#fff',
+                          fontWeight: 'bold'
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {task.assignedTo ? 
+                        users.find(u => u.id === task.assignedTo)?.firstName + ' ' + users.find(u => u.id === task.assignedTo)?.lastName : 
+                        '-'
+                      }
+                    </TableCell>
+                    <TableCell onClick={e => e.stopPropagation()}>
+                      <Button size="small" onClick={() => handleOpenDialog('edit', task)}>Edit</Button>
+                      <Button size="small" color="error" onClick={() => handleDelete(task.id)}>Delete</Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
       </Paper>
-      {/* Add/Edit Dialog */}
-      <Dialog open={open} onClose={handleClose}>
+
+      {/* Task Dialog */}
+      <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle
           sx={{
             background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)',
             color: '#fff',
-            fontWeight: 'bold',
-            mb: 2 // <-- This adds padding below the title
+            fontWeight: 'bold'
           }}
         >
-          {editingTask ? 'Edit Task' : 'Add Task'}
+          {dialogMode === 'view' && selectedTask && 'Task Details'}
+          {dialogMode === 'edit' && 'Edit Task'}
+          {dialogMode === 'add' && 'Add New Task'}
         </DialogTitle>
         <DialogContent>
-          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1, minWidth: 300 }}>
+          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 4 }}>
+            {/* Row 1: Title */}
             <TextField
               name="title"
               label="Title"
@@ -285,77 +394,141 @@ const Tasks: React.FC = () => {
               onChange={handleFormChange}
               required
               fullWidth
-              sx={{ mb: 2 }}
+              disabled={dialogMode === 'view'}
+              sx={{ 
+                mb: 5,
+                '& .MuiInputBase-input.Mui-disabled': {
+                  color: 'black',
+                  WebkitTextFillColor: 'black'
+                }
+              }}
             />
+
+            {/* Row 2: Description */}
             <TextField
               name="description"
               label="Description"
               value={form.description}
               onChange={handleFormChange}
               fullWidth
-              sx={{ mb: 2 }}
+              multiline
+              rows={3}
+              disabled={dialogMode === 'view'}
+              sx={{ 
+                mb: 5,
+                '& .MuiInputBase-input.Mui-disabled': {
+                  color: 'black',
+                  WebkitTextFillColor: 'black'
+                }
+              }}
             />
-            <TextField
-              name="dueDate"
-              label="Due Date"
-              type="date"
-              value={form.dueDate}
-              onChange={handleFormChange}
-              fullWidth
-              sx={{ mb: 2 }}
-              InputLabelProps={{ shrink: true }}
-            />
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel>Status</InputLabel>
-              <Select
-                name="status"
-                value={form.status}
-                label="Status"
-                onChange={handleStatusChange}
-                required
-              >
-                {statusOptions.map(status => (
-                  <MenuItem key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel>Assigned To</InputLabel>
-              <Select
-                name="assignedTo"
-                value={form.assignedTo}
-                label="Assigned To"
+
+            {/* Row 3: Due Date, Priority */}
+            <Box display="flex" gap={2} mb={2}>
+              <TextField
+                name="dueDate"
+                label="Due Date"
+                type="date"
+                value={form.dueDate}
                 onChange={handleFormChange}
-              >
-                <MenuItem value="">Unassigned</MenuItem>
-                {usersList.map(user => (
-                  <MenuItem key={user.id} value={user.id}>
-                    {user.firstName} {user.lastName} ({user.email})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel>Priority</InputLabel>
-              <Select
-                name="priority"
-                value={form.priority}
-                label="Priority"
-                onChange={handlePriorityChange}
-                required
-              >
-                {priorityOptions.map(priority => (
-                  <MenuItem key={priority} value={priority}>{priority.charAt(0).toUpperCase() + priority.slice(1)}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <DialogActions>
-              <Button onClick={handleClose}>Cancel</Button>
-              <Button type="submit" variant="contained">{editingTask ? 'Update' : 'Add'}</Button>
-            </DialogActions>
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                disabled={dialogMode === 'view'}
+                sx={{
+                  '& .MuiInputBase-input.Mui-disabled': {
+                    color: 'black',
+                    WebkitTextFillColor: 'black'
+                  }
+                }}
+              />
+              <FormControl fullWidth>
+                <InputLabel>Priority</InputLabel>
+                <Select
+                  name="priority"
+                  value={form.priority}
+                  label="Priority"
+                  onChange={handleFormChange}
+                  required
+                  disabled={dialogMode === 'view'}
+                  sx={{
+                    '& .MuiSelect-select.Mui-disabled': {
+                      color: 'black',
+                      WebkitTextFillColor: 'black'
+                    }
+                  }}
+                >
+                  {priorityOptions.map(priority => (
+                    <MenuItem key={priority} value={priority}>
+                      {priority.charAt(0).toUpperCase() + priority.slice(1)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* Row 4: Status, Assigned To */}
+            <Box display="flex" gap={2} mb={2}>
+              <FormControl fullWidth>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  name="status"
+                  value={form.status}
+                  label="Status"
+                  onChange={handleFormChange}
+                  required
+                  disabled={dialogMode === 'view'}
+                  sx={{
+                    '& .MuiSelect-select.Mui-disabled': {
+                      color: 'black',
+                      WebkitTextFillColor: 'black'
+                    }
+                  }}
+                >
+                  {statusOptions.map(status => (
+                    <MenuItem key={status} value={status}>
+                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl fullWidth>
+                <InputLabel>Assigned To</InputLabel>
+                <Select
+                  name="assignedTo"
+                  value={form.assignedTo}
+                  label="Assigned To"
+                  onChange={handleFormChange}
+                  disabled={dialogMode === 'view'}
+                  sx={{
+                    '& .MuiSelect-select.Mui-disabled': {
+                      color: 'black',
+                      WebkitTextFillColor: 'black'
+                    }
+                  }}
+                >
+                  <MenuItem value="">Unassigned</MenuItem>
+                  {users.map(user => (
+                    <MenuItem key={user.id} value={user.id}>
+                      {user.firstName} {user.lastName}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* Only show action buttons for edit/add modes */}
+            {(dialogMode === 'edit' || dialogMode === 'add') && (
+              <DialogActions>
+                <Button onClick={handleClose}>Cancel</Button>
+                <Button type="submit" variant="contained">
+                  {dialogMode === 'edit' ? 'Update' : 'Add'}
+                </Button>
+              </DialogActions>
+            )}
           </Box>
         </DialogContent>
       </Dialog>
+
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3000}
