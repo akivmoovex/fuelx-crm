@@ -11,6 +11,7 @@ export interface BusinessUnit {
   phone: string;
   email: string;
   managerId: string;
+  tenantId: string;
   status: 'active' | 'inactive';
   createdAt: string;
   updatedAt: string;
@@ -19,6 +20,11 @@ export interface BusinessUnit {
     firstName: string;
     lastName: string;
     email: string;
+  };
+  tenant?: {
+    id: string;
+    name: string;
+    type: string;
   };
 }
 
@@ -33,6 +39,7 @@ export interface BusinessUnitFormData {
   phone: string;
   email: string;
   managerId: string;
+  tenantId: string;
   status: 'active' | 'inactive';
 }
 
@@ -259,3 +266,4 @@ export interface CustomerFormData {
   source: string;
   notes: string;
 }
+ 

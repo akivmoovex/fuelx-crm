@@ -45,6 +45,11 @@ const menuItems = [
     icon: <StorefrontIcon />
   },
   { 
+    label: 'Business Units', 
+    path: '/business-units',
+    icon: <BusinessIcon />
+  },
+  { 
     label: 'Accounts', 
     path: '/accounts',
     icon: <AccountCircleIcon />
@@ -53,11 +58,6 @@ const menuItems = [
     label: 'Customers', 
     path: '/customers',
     icon: <GroupIcon />
-  },
-  { 
-    label: 'Business Units', 
-    path: '/business-units',
-    icon: <BusinessIcon />
   },
   { 
     label: 'Users', 

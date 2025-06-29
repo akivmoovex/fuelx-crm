@@ -13,6 +13,7 @@ model Tenant {
   name        String
   type        TenantType
   status      String   @default("active") // active, inactive, suspended
+  notes       String?  // Add this field
   parentId    String?  // For hierarchical structure (HQ -> Sales Office)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

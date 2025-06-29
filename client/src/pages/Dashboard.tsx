@@ -485,289 +485,128 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4 }}>
-      <Paper sx={{ p: 3, mb: 4 }}>
-        {/* Interactive Header */}
-        <Box sx={{ mb: 4 }}>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-            <Box>
-              <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
-                Welcome back, {user?.firstName || 'User'}!
-              </Typography>
-              <Typography variant="body1" color="textSecondary">
-                Here's your CRM overview for today
-              </Typography>
-            </Box>
-            <Box display="flex" gap={1}>
-              <Tooltip title="Refresh dashboard">
-                <IconButton 
-                  onClick={handleRefresh} 
-                  disabled={refreshLoading}
-                  sx={{ 
-                    backgroundColor: 'rgba(25, 118, 210, 0.1)',
-                    '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.2)' }
-                  }}
-                >
-                  <Refresh className={refreshLoading ? 'animate-spin' : ''} />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Export dashboard">
-                <IconButton 
-                  sx={{ 
-                    backgroundColor: 'rgba(25, 118, 210, 0.1)',
-                    '&:hover': { backgroundColor: 'rgba(25, 118, 210, 0.2)' }
-                  }}
-                >
-                  <Download />
-                </IconButton>
-              </Tooltip>
-            </Box>
+    <Container maxWidth="xl" sx={{ mt: { xs: 2, md: 4 } }}>
+      {/* Header */}
+      <Paper sx={{ 
+        p: { xs: 2, md: 3 }, 
+        mb: { xs: 2, md: 4 }, 
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+        color: 'white',
+        borderRadius: { xs: 0, md: 2 }
+      }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
+              Welcome back, {user?.firstName || 'User'}!
+            </Typography>
+            <Typography variant="body1" sx={{ opacity: 0.9 }}>
+              Here's your CRM overview for today
+            </Typography>
           </Box>
-          
-          {/* Search Bar */}
-          <TextField
-            fullWidth
-            placeholder="Search deals, customers, or tasks..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />,
-              endAdornment: searchTerm && (
-                <IconButton size="small" onClick={() => setSearchTerm('')}>
-                  <Error />
-                </IconButton>
-              )
-            }}
-            sx={{ mb: 2 }}
-          />
+          <Box display="flex" gap={1}>
+            <Tooltip title="Refresh dashboard">
+              <IconButton 
+                onClick={handleRefresh} 
+                disabled={refreshLoading}
+                sx={{ 
+                  backgroundColor: 'rgba(255,255,255,0.1)',
+                  color: 'white',
+                  '&:hover': { backgroundColor: 'rgba(255,255,255,0.2)' }
+                }}
+              >
+                <Refresh className={refreshLoading ? 'animate-spin' : ''} />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
+      </Paper>
 
-        {/* Interactive Key Metrics Cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Grow in={true} timeout={300}>
-              <Card 
-                sx={{ 
-                  height: '100%',
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: 'white',
-                  cursor: 'pointer',
-                  transform: hoveredCard === 'customers' ? 'scale(1.02)' : 'scale(1)',
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    transform: 'scale(1.02)',
-                    boxShadow: '0 8px 25px rgba(0,0,0,0.15)'
-                  }
-                }}
-                onMouseEnter={() => setHoveredCard('customers')}
-                onMouseLeave={() => setHoveredCard(null)}
-                onClick={() => handleNavigate('/accounts')}
-              >
-                <CardContent sx={{ p: 3 }}>
-                  <Box display="flex" alignItems="center" justifyContent="space-between">
-                    <Box>
-                      <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
-                        Total Accounts
-                      </Typography>
-                      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        {dashboardData.summary.totalAccounts}
-                      </Typography>
-                      <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                        Click to view all accounts
-                      </Typography>
-                    </Box>
-                    <People sx={{ fontSize: 40, opacity: 0.8 }} />
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grow>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Grow in={true} timeout={400}>
-              <Card 
-                sx={{ 
-                  height: '100%',
-                  background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-                  color: 'white',
-                  cursor: 'pointer',
-                  transform: hoveredCard === 'deals' ? 'scale(1.02)' : 'scale(1)',
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    transform: 'scale(1.02)',
-                    boxShadow: '0 8px 25px rgba(0,0,0,0.15)'
-                  }
-                }}
-                onMouseEnter={() => setHoveredCard('deals')}
-                onMouseLeave={() => setHoveredCard(null)}
-                onClick={() => handleNavigate('/deals')}
-              >
-                <CardContent sx={{ p: 3 }}>
-                  <Box display="flex" alignItems="center" justifyContent="space-between">
-                    <Box>
-                      <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
-                        Active Deals
-                      </Typography>
-                      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        {dashboardData.summary.activeDeals}
-                      </Typography>
-                      <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                        Click to view all deals
-                      </Typography>
-                    </Box>
-                    <TrendingUp sx={{ fontSize: 40, opacity: 0.8 }} />
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grow>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Grow in={true} timeout={500}>
-              <Card 
-                sx={{ 
-                  height: '100%',
-                  background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-                  color: 'white',
-                  cursor: 'pointer',
-                  transform: hoveredCard === 'revenue' ? 'scale(1.02)' : 'scale(1)',
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    transform: 'scale(1.02)',
-                    boxShadow: '0 8px 25px rgba(0,0,0,0.15)'
-                  }
-                }}
-                onMouseEnter={() => setHoveredCard('revenue')}
-                onMouseLeave={() => setHoveredCard(null)}
-                onClick={() => handleNavigate('/reports')}
-              >
-                <CardContent sx={{ p: 3 }}>
-                  <Box display="flex" alignItems="center" justifyContent="space-between">
-                    <Box>
-                      <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
-                        Total Revenue
-                      </Typography>
-                      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        {formatCurrency(dashboardData.summary.totalRevenue)}
-                      </Typography>
-                      <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                        Click to view reports
-                      </Typography>
-                    </Box>
-                    <AttachMoney sx={{ fontSize: 40, opacity: 0.8 }} />
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grow>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Grow in={true} timeout={600}>
-              <Card 
-                sx={{ 
-                  height: '100%',
-                  background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-                  color: 'white',
-                  cursor: 'pointer',
-                  transform: hoveredCard === 'tasks' ? 'scale(1.02)' : 'scale(1)',
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    transform: 'scale(1.02)',
-                    boxShadow: '0 8px 25px rgba(0,0,0,0.15)'
-                  }
-                }}
-                onMouseEnter={() => setHoveredCard('tasks')}
-                onMouseLeave={() => setHoveredCard(null)}
-                onClick={() => handleNavigate('/tasks')}
-              >
-                <CardContent sx={{ p: 3 }}>
-                  <Box display="flex" alignItems="center" justifyContent="space-between">
-                    <Box>
-                      <Typography variant="body2" sx={{ opacity: 0.9, mb: 1 }}>
-                        Pending Tasks
-                      </Typography>
-                      <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        {dashboardData.summary.pendingTasks}
-                      </Typography>
-                      <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                        {dashboardData.summary.overdueTasks} overdue
-                      </Typography>
-                    </Box>
-                    <Assignment sx={{ fontSize: 40, opacity: 0.8 }} />
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grow>
-          </Grid>
+      {/* Key Metrics Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={6} sm={6} md={3}>
+          <Card sx={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            borderRadius: 3
+          }}>
+            <CardContent sx={{ p: { xs: 2, md: 3 }, textAlign: 'center' }}>
+              <People sx={{ fontSize: { xs: 32, md: 40 }, mb: 1 }} />
+              <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                {dashboardData.summary.totalAccounts}
+              </Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                Total Accounts
+              </Typography>
+            </CardContent>
+          </Card>
         </Grid>
+        <Grid item xs={6} sm={6} md={3}>
+          <Card sx={{
+            background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+            color: 'white',
+            borderRadius: 3
+          }}>
+            <CardContent sx={{ p: { xs: 2, md: 3 }, textAlign: 'center' }}>
+              <Business sx={{ fontSize: { xs: 32, md: 40 }, mb: 1 }} />
+              <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                {dashboardData.summary.activeDeals}
+              </Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                Active Deals
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={6} sm={6} md={3}>
+          <Card sx={{
+            background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+            color: 'white',
+            borderRadius: 3
+          }}>
+            <CardContent sx={{ p: { xs: 2, md: 3 }, textAlign: 'center' }}>
+              <AttachMoney sx={{ fontSize: { xs: 32, md: 40 }, mb: 1 }} />
+              <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                {formatCurrency(dashboardData.summary.totalRevenue)}
+              </Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                Total Revenue
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={6} sm={6} md={3}>
+          <Card sx={{
+            background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+            color: 'white',
+            borderRadius: 3
+          }}>
+            <CardContent sx={{ p: { xs: 2, md: 3 }, textAlign: 'center' }}>
+              <Assignment sx={{ fontSize: { xs: 32, md: 40 }, mb: 1 }} />
+              <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                {dashboardData.summary.pendingTasks}
+              </Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                Pending Tasks
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
-        {/* Interactive User Performance Section */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} md={4}>
-            <Fade in={true} timeout={700}>
-              <Card sx={{ height: '100%' }}>
-                <CardHeader 
-                  title="Your Performance This Month" 
-                  action={
-                    <Tooltip title="View detailed performance">
-                      <IconButton size="small" onClick={() => handleNavigate('/reports')}>
-                        <Assessment />
-                      </IconButton>
-                    </Tooltip>
-                  }
-                  sx={{ 
-                    background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)',
-                    color: 'white',
-                    '& .MuiCardHeader-title': { fontWeight: 'bold' }
-                  }}
-                />
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ mb: 3 }}>
-                    <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>
-                      {dashboardData.userStats.dealsThisMonth}
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      New deals created
-                    </Typography>
-                  </Box>
-                  <Box sx={{ mb: 3 }}>
-                    <Typography variant="h6" color="success.main" sx={{ fontWeight: 'bold' }}>
-                      {dashboardData.userStats.tasksCompleted}
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      Tasks completed
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="h6" color="warning.main" sx={{ fontWeight: 'bold' }}>
-                      {formatCurrency(dashboardData.userStats.revenueGenerated)}
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      Revenue generated
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Fade>
-          </Grid>
-          <Grid item xs={12} md={8}>
-            <Fade in={true} timeout={800}>
-              <Card sx={{ height: '100%' }}>
-                <CardHeader 
-                  title="Quick Actions" 
-                  action={
-                    <Tooltip title="View all pages">
-                      <IconButton size="small" onClick={() => navigate('/accounts')}>
-                        <Add />
-                      </IconButton>
-                    </Tooltip>
-                  }
-                  sx={{ 
-                    background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)',
-                    color: 'white',
-                    '& .MuiCardHeader-title': { fontWeight: 'bold' }
-                  }}
-                />
-                <CardContent sx={{ p: 3 }}>
+      {/* Desktop Layout */}
+      <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+        <Grid container spacing={3}>
+          {/* Left Column */}
+          <Grid item xs={12} md={6}>
+            <Grid container spacing={3}>
+              {/* Quick Actions */}
+              <Grid item xs={12}>
+                <Paper sx={{ p: 3, borderRadius: 3 }}>
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
+                    Quick Actions
+                  </Typography>
                   <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
+                    <Grid item xs={12}>
                       <Button
                         variant="outlined"
                         startIcon={<Add />}
@@ -775,20 +614,16 @@ const Dashboard: React.FC = () => {
                         sx={{ 
                           justifyContent: 'flex-start', 
                           p: 2, 
-                          mb: 1,
-                          transition: 'all 0.3s ease',
-                          '&:hover': {
-                            transform: 'translateY(-2px)',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                          }
+                          borderRadius: 2,
+                          textTransform: 'none',
+                          fontWeight: 600
                         }}
-                        onClick={() => {
-                          console.log('Add New Account clicked');
-                          handleQuickAction('customer');
-                        }}
+                        onClick={() => handleQuickAction('customer')}
                       >
                         Add New Account
                       </Button>
+                    </Grid>
+                    <Grid item xs={12}>
                       <Button
                         variant="outlined"
                         startIcon={<Business />}
@@ -796,22 +631,16 @@ const Dashboard: React.FC = () => {
                         sx={{ 
                           justifyContent: 'flex-start', 
                           p: 2, 
-                          mb: 1,
-                          transition: 'all 0.3s ease',
-                          '&:hover': {
-                            transform: 'translateY(-2px)',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                          }
+                          borderRadius: 2,
+                          textTransform: 'none',
+                          fontWeight: 600
                         }}
-                        onClick={() => {
-                          console.log('Create New Deal clicked');
-                          handleQuickAction('deal');
-                        }}
+                        onClick={() => handleQuickAction('deal')}
                       >
                         Create New Deal
                       </Button>
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid item xs={12}>
                       <Button
                         variant="outlined"
                         startIcon={<Assignment />}
@@ -819,267 +648,161 @@ const Dashboard: React.FC = () => {
                         sx={{ 
                           justifyContent: 'flex-start', 
                           p: 2, 
-                          mb: 1,
-                          transition: 'all 0.3s ease',
-                          '&:hover': {
-                            transform: 'translateY(-2px)',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                          }
+                          borderRadius: 2,
+                          textTransform: 'none',
+                          fontWeight: 600
                         }}
-                        onClick={() => {
-                          console.log('Add New Task clicked');
-                          handleQuickAction('task');
-                        }}
+                        onClick={() => handleQuickAction('task')}
                       >
                         Add New Task
                       </Button>
-                      <Button
-                        variant="outlined"
-                        startIcon={<Assessment />}
-                        fullWidth
-                        sx={{ 
-                          justifyContent: 'flex-start', 
-                          p: 2, 
-                          mb: 1,
-                          transition: 'all 0.3s ease',
-                          '&:hover': {
-                            transform: 'translateY(-2px)',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                          }
-                        }}
-                        onClick={() => {
-                          console.log('View Reports clicked');
-                          handleNavigate('/reports');
-                        }}
-                      >
-                        View Reports
-                      </Button>
                     </Grid>
                   </Grid>
-                </CardContent>
-              </Card>
-            </Fade>
-          </Grid>
-        </Grid>
+                </Paper>
+              </Grid>
 
-        {/* Interactive Recent Activity Section */}
-        <Grid container spacing={3}>
-          <Grid item xs={12} lg={6}>
-            <Zoom in={true} timeout={900}>
-              <Card sx={{ height: '100%' }}>
-                <CardHeader 
-                  title="Recent Deals" 
-                  action={
-                    <Box display="flex" gap={1}>
-                      <Tooltip title="View all deals">
-                        <IconButton size="small" onClick={() => handleNavigate('/deals')}>
-                          <ArrowForward />
-                        </IconButton>
-                      </Tooltip>
+              {/* Recent Deals */}
+              <Grid item xs={12}>
+                <Paper sx={{ p: 3, borderRadius: 3 }}>
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
+                    Recent Deals
+                  </Typography>
+                  {dashboardData.recentDeals.slice(0, 5).map((deal) => (
+                    <Box key={deal.id} sx={{ mb: 2, p: 1.5, bgcolor: 'grey.50', borderRadius: 2 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                        {deal.title}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        {formatCurrency(deal.amount)} • {deal.stage}
+                      </Typography>
                     </Box>
-                  }
-                  sx={{ 
-                    background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)',
-                    color: 'white',
-                    '& .MuiCardHeader-title': { fontWeight: 'bold' }
-                  }}
-                />
-                <CardContent sx={{ p: 0 }}>
-                  <List>
-                    {dashboardData.recentDeals.map((deal, index) => (
-                      <React.Fragment key={deal.id}>
-                        <ListItem 
-                          sx={{ 
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease',
-                            '&:hover': {
-                              backgroundColor: 'rgba(25, 118, 210, 0.08)',
-                              transform: 'translateX(4px)'
-                            }
-                          }}
-                          onClick={() => handleItemClick('deal', deal)}
-                        >
-                          <ListItemAvatar>
-                            <Avatar sx={{ backgroundColor: getStageColor(deal.stage) }}>
-                              <Business />
-                            </Avatar>
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={
-                              <Box display="flex" justifyContent="space-between" alignItems="center">
-                                <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-                                  {deal.title}
-                                </Typography>
-                                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                                  {formatCurrency(deal.amount)}
-                                </Typography>
-                              </Box>
-                            }
-                            secondary={
-                              <Box>
-                                <Chip
-                                  label={deal.stage.charAt(0).toUpperCase() + deal.stage.slice(1)}
-                                  size="small"
-                                  sx={{
-                                    backgroundColor: getStageColor(deal.stage),
-                                    color: '#fff',
-                                    fontWeight: 'bold',
-                                    fontSize: '0.75rem',
-                                    mr: 1
-                                  }}
-                                />
-                                <Typography variant="caption" color="textSecondary">
-                                  {new Date(deal.createdAt).toLocaleDateString()}
-                                </Typography>
-                              </Box>
-                            }
-                          />
-                          <Box display="flex" gap={1}>
-                            <Tooltip title="View details">
-                              <IconButton 
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/deals/${deal.id}`);
-                                }}
-                              >
-                                <Visibility />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Edit deal">
-                              <IconButton 
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/deals/${deal.id}?edit=true`);
-                                }}
-                              >
-                                <Edit />
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
-                        </ListItem>
-                        {index < dashboardData.recentDeals.length - 1 && <Divider />}
-                      </React.Fragment>
-                    ))}
-                  </List>
-                </CardContent>
-              </Card>
-            </Zoom>
+                  ))}
+                </Paper>
+              </Grid>
+            </Grid>
           </Grid>
-          <Grid item xs={12} lg={6}>
-            <Zoom in={true} timeout={1000}>
-              <Card sx={{ height: '100%' }}>
-                <CardHeader 
-                  title="Upcoming Tasks" 
-                  action={
-                    <Box display="flex" gap={1}>
-                      <Tooltip title="View all tasks">
-                        <IconButton size="small" onClick={() => handleNavigate('/tasks')}>
-                          <ArrowForward />
-                        </IconButton>
-                      </Tooltip>
+
+          {/* Right Column */}
+          <Grid item xs={12} md={6}>
+            <Grid container spacing={3}>
+              {/* Upcoming Tasks */}
+              <Grid item xs={12}>
+                <Paper sx={{ p: 3, borderRadius: 3 }}>
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
+                    Upcoming Tasks
+                  </Typography>
+                  {dashboardData.upcomingTasks.slice(0, 5).map((task) => (
+                    <Box key={task.id} sx={{ mb: 2, p: 1.5, bgcolor: 'grey.50', borderRadius: 2 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                        {task.title}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        {formatDate(task.dueDate)} • {task.priority}
+                      </Typography>
                     </Box>
-                  }
-                  sx={{ 
-                    background: 'linear-gradient(90deg, #1976d2 0%, #42a5f5 100%)',
-                    color: 'white',
-                    '& .MuiCardHeader-title': { fontWeight: 'bold' }
-                  }}
-                />
-                <CardContent sx={{ p: 0 }}>
-                  <List>
-                    {dashboardData.upcomingTasks.map((task, index) => (
-                      <React.Fragment key={task.id}>
-                        <ListItem 
-                          sx={{ 
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease',
-                            '&:hover': {
-                              backgroundColor: 'rgba(25, 118, 210, 0.08)',
-                              transform: 'translateX(4px)'
-                            }
-                          }}
-                          onClick={() => handleItemClick('task', task)}
-                        >
-                          <ListItemAvatar>
-                            <Avatar sx={{ 
-                              backgroundColor: task.dueDate && new Date(task.dueDate) < new Date() 
-                                ? '#f44336' 
-                                : getPriorityColor(task.priority) 
-                            }}>
-                              {task.dueDate && new Date(task.dueDate) < new Date() ? (
-                                <Warning />
-                              ) : (
-                                <Assignment />
-                              )}
-                            </Avatar>
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={
-                              <Box display="flex" justifyContent="space-between" alignItems="center">
-                                <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-                                  {task.title}
-                                </Typography>
-                                <Chip
-                                  label={task.priority}
-                                  size="small"
-                                  sx={{
-                                    backgroundColor: getPriorityColor(task.priority),
-                                    color: '#fff',
-                                    fontWeight: 'bold',
-                                    fontSize: '0.75rem'
-                                  }}
-                                />
-                              </Box>
-                            }
-                            secondary={
-                              <Box>
-                                <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-                                  {task.description || 'No description'}
-                                </Typography>
-                                <Typography variant="caption" color="textSecondary">
-                                  {formatDate(task.dueDate)}
-                                </Typography>
-                              </Box>
-                            }
-                          />
-                          <Box display="flex" gap={1}>
-                            <Tooltip title="Mark as complete">
-                              <IconButton 
-                                size="small" 
-                                color="success"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCompleteTask(task.id);
-                                }}
-                              >
-                                <CheckCircle />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Edit task">
-                              <IconButton 
-                                size="small"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/tasks?edit=${task.id}`);
-                                }}
-                              >
-                                <Edit />
-                              </IconButton>
-                            </Tooltip>
-                          </Box>
-                        </ListItem>
-                        {index < dashboardData.upcomingTasks.length - 1 && <Divider />}
-                      </React.Fragment>
-                    ))}
-                  </List>
-                </CardContent>
-              </Card>
-            </Zoom>
+                  ))}
+                </Paper>
+              </Grid>
+            </Grid>
           </Grid>
         </Grid>
-      </Paper>
+      </Box>
+
+      {/* Mobile Layout */}
+      <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+        {/* Quick Actions */}
+        <Paper sx={{ p: 2, mb: 2, borderRadius: 3 }}>
+          <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
+            Quick Actions
+          </Typography>
+          <Grid container spacing={1.5}>
+            <Grid item xs={12}>
+              <Button
+                variant="outlined"
+                startIcon={<Add />}
+                fullWidth
+                sx={{ 
+                  justifyContent: 'flex-start', 
+                  p: 1.5, 
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600
+                }}
+                onClick={() => handleQuickAction('customer')}
+              >
+                Add New Account
+              </Button>
+            </Grid>
+            <Grid item xs={12}>
+              <Button
+                variant="outlined"
+                startIcon={<Business />}
+                fullWidth
+                sx={{ 
+                  justifyContent: 'flex-start', 
+                  p: 1.5, 
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600
+                }}
+                onClick={() => handleQuickAction('deal')}
+              >
+                Create New Deal
+              </Button>
+            </Grid>
+            <Grid item xs={12}>
+              <Button
+                variant="outlined"
+                startIcon={<Assignment />}
+                fullWidth
+                sx={{ 
+                  justifyContent: 'flex-start', 
+                  p: 1.5, 
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600
+                }}
+                onClick={() => handleQuickAction('task')}
+              >
+                Add New Task
+              </Button>
+            </Grid>
+          </Grid>
+        </Paper>
+
+        {/* Recent Activity */}
+        <Paper sx={{ p: 2, mb: 2, borderRadius: 3 }}>
+          <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
+            Recent Deals
+          </Typography>
+          {dashboardData.recentDeals.slice(0, 3).map((deal) => (
+            <Box key={deal.id} sx={{ mb: 2, p: 1.5, bgcolor: 'grey.50', borderRadius: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                {deal.title}
+              </Typography>
+              <Typography variant="body2" color="textSecondary">
+                {formatCurrency(deal.amount)} • {deal.stage}
+              </Typography>
+            </Box>
+          ))}
+        </Paper>
+
+        <Paper sx={{ p: 2, borderRadius: 3 }}>
+          <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
+            Upcoming Tasks
+          </Typography>
+          {dashboardData.upcomingTasks.slice(0, 3).map((task) => (
+            <Box key={task.id} sx={{ mb: 2, p: 1.5, bgcolor: 'grey.50', borderRadius: 2 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                {task.title}
+              </Typography>
+              <Typography variant="body2" color="textSecondary">
+                {formatDate(task.dueDate)} • {task.priority}
+              </Typography>
+            </Box>
+          ))}
+        </Paper>
+      </Box>
 
       {/* Quick Action Dialog */}
       <Dialog 

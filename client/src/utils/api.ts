@@ -32,7 +32,19 @@ class ApiClient {
       throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
     }
 
-    return response.json();
+    // Handle 204 No Content responses (like DELETE operations)
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    // Only try to parse JSON if there's content
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return response.json();
+    }
+
+    // For non-JSON responses, return the response text
+    return response.text() as T;
   }
 
   // GET request

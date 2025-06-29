@@ -147,26 +147,41 @@ router.put('/:id', authenticateToken, requirePermission(PERMISSIONS.BUSINESS_UNI
 });
 
 // DELETE business unit (SYSTEM_ADMIN only)
-router.delete('/:id', authenticateToken, requirePermission(PERMISSIONS.BUSINESS_UNITS_DELETE), requireTenantAccess('businessUnit'), async (req, res) => {
+router.delete('/:id', authenticateToken, requirePermission(PERMISSIONS.BUSINESS_UNITS_DELETE), async (req, res) => {
   try {
     // Only SYSTEM_ADMIN can delete business units
     if (req.user.role !== 'SYSTEM_ADMIN') {
       return res.status(403).json({ error: 'Only system administrators can delete business units' });
     }
 
+    // First check if the business unit exists
+    const existingBusinessUnit = await prisma.businessUnit.findUnique({
+      where: { id: req.params.id },
+      include: {
+        users: { select: { id: true, firstName: true, lastName: true } },
+        accounts: { select: { id: true, name: true } }
+      }
+    });
+
+    if (!existingBusinessUnit) {
+      return res.status(404).json({ error: 'Business unit not found' });
+    }
+
     // Check if business unit has associated users or accounts
-    const hasUsers = await prisma.user.findFirst({
-      where: { businessUnitId: req.params.id }
-    });
-    
-    const hasAccounts = await prisma.account.findFirst({
-      where: { businessUnitId: req.params.id }
-    });
+    const hasUsers = existingBusinessUnit.users.length > 0;
+    const hasAccounts = existingBusinessUnit.accounts.length > 0;
     
     if (hasUsers || hasAccounts) {
-      return res.status(400).json({ 
-        error: 'Cannot delete business unit that has associated users or accounts' 
-      });
+      let errorMessage = 'Cannot delete business unit because it has:';
+      if (hasUsers) {
+        errorMessage += ` ${existingBusinessUnit.users.length} user(s)`;
+      }
+      if (hasAccounts) {
+        errorMessage += ` ${existingBusinessUnit.accounts.length} account(s)`;
+      }
+      errorMessage += ' associated with it. Please reassign or delete these items first.';
+      
+      return res.status(400).json({ error: errorMessage });
     }
 
     await prisma.businessUnit.delete({
