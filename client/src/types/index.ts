@@ -2,14 +2,11 @@
 export interface BusinessUnit {
   id: string;
   name: string;
-  location: string;
-  address: string;
+  address?: string;
   city: string;
   state: string;
   postalCode: string;
   country: string;
-  phone: string;
-  email: string;
   managerId: string;
   tenantId: string;
   status: 'active' | 'inactive';

@@ -24,7 +24,7 @@ router.get('/', authenticateToken, requirePermission(PERMISSIONS.BUSINESS_UNITS_
     if (search) {
       where.OR = [
         { name: { contains: search as string, mode: 'insensitive' } },
-        { location: { contains: search as string, mode: 'insensitive' } },
+        { address: { contains: search as string, mode: 'insensitive' } },
         { city: { contains: search as string, mode: 'insensitive' } }
       ];
     }
@@ -96,7 +96,8 @@ router.post('/', authenticateToken, requirePermission(PERMISSIONS.BUSINESS_UNITS
 
     const businessUnitData = {
       ...req.body,
-      tenantId: req.body.tenantId || req.user.tenantId // Use provided tenant or user's tenant
+      tenantId: req.body.tenantId || req.user.tenantId, // Use provided tenant or user's tenant
+      country: req.body.country || 'Zambia' // Default to Zambia
     };
 
     const businessUnit = await prisma.businessUnit.create({

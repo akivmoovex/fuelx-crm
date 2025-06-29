@@ -4,7 +4,7 @@ import { apiClient } from '../utils/api';
 import {
   Container, Paper, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem, FormControl, InputLabel, Snackbar, Alert,
-  Chip, IconButton, Tooltip, TextField as MuiTextField, Grid, Card, CardContent, CardHeader, LinearProgress, CircularProgress
+  Chip, IconButton, Tooltip, TextField as MuiTextField, Grid, Card, CardContent, CardHeader, LinearProgress, CircularProgress, InputAdornment
 } from '@mui/material';
 import {
   Add, Edit, Delete, Visibility, Search, Refresh, AttachMoney, TrendingUp, 
@@ -80,6 +80,7 @@ const Deals: React.FC = () => {
   const [sortBy, setSortBy] = useState<'title' | 'amount' | 'stage' | 'expectedCloseDate'>('expectedCloseDate');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentUser, setCurrentUser] = useState<{ id: string; role: string; firstName?: string; lastName?: string } | null>(null);
+  const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
 
   // Fetch deals with better error handling
   const fetchDeals = async () => {
@@ -122,6 +123,7 @@ const Deals: React.FC = () => {
   const handleOpenDialog = (mode: DialogMode, deal?: Deal) => {
     setDialogMode(mode);
     setSelectedDeal(deal || null);
+    setFormErrors({});
     
     if (mode === 'view' && deal) {
       // View mode - populate form for display (read-only)
@@ -193,6 +195,7 @@ const Deals: React.FC = () => {
     setOpen(false);
     setSelectedDeal(null);
     setDialogMode('view');
+    setFormErrors({});
   };
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
@@ -330,6 +333,37 @@ const Deals: React.FC = () => {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString();
+  };
+
+  const validateForm = () => {
+    const errors: {[key: string]: string} = {};
+
+    if (!form.title.trim()) {
+      errors.title = 'Deal title is required';
+    }
+
+    if (!form.customerId) {
+      errors.customerId = 'Account is required';
+    }
+
+    if (!form.amount || form.amount <= 0) {
+      errors.amount = 'Amount must be greater than 0';
+    }
+
+    if (!form.stage) {
+      errors.stage = 'Stage is required';
+    }
+
+    if (!form.assignedTo) {
+      errors.assignedTo = 'Assigned user is required';
+    }
+
+    if (!form.expectedCloseDate) {
+      errors.expectedCloseDate = 'Expected close date is required';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   if (loading) {
@@ -627,11 +661,12 @@ const Deals: React.FC = () => {
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="Deal Title"
+                  label="Deal Title *"
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  required
                   disabled={dialogMode === 'view'}
+                  error={!!formErrors.title}
+                  helperText={formErrors.title}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -648,12 +683,16 @@ const Deals: React.FC = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Amount"
+                  label="Amount (ZMW) *"
                   type="number"
                   value={form.amount}
-                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                  required
+                  onChange={(e) => setForm({ ...form, amount: parseFloat(e.target.value) || 0 })}
                   disabled={dialogMode === 'view'}
+                  error={!!formErrors.amount}
+                  helperText={formErrors.amount}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">ZMW</InputAdornment>,
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -667,20 +706,25 @@ const Deals: React.FC = () => {
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Stage</InputLabel>
+                <FormControl fullWidth error={!!formErrors.stage}>
+                  <InputLabel>Stage *</InputLabel>
                   <Select
                     value={form.stage}
-                    label="Stage"
+                    label="Stage *"
                     onChange={(e) => setForm({ ...form, stage: e.target.value })}
                     disabled={dialogMode === 'view'}
                   >
                     {stageOptions.map(stage => (
                       <MenuItem key={stage} value={stage}>
-                        {stage.charAt(0).toUpperCase() + stage.slice(1).replace('-', ' ')}
+                        {stage}
                       </MenuItem>
                     ))}
                   </Select>
+                  {formErrors.stage && (
+                    <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
+                      {formErrors.stage}
+                    </Typography>
+                  )}
                 </FormControl>
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -701,21 +745,26 @@ const Deals: React.FC = () => {
                 </FormControl>
               </Grid>
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Account</InputLabel>
+                <FormControl fullWidth error={!!formErrors.customerId}>
+                  <InputLabel>Account *</InputLabel>
                   <Select
                     value={form.customerId}
-                    label="Account"
+                    label="Account *"
                     onChange={(e) => setForm({ ...form, customerId: e.target.value })}
                     disabled={dialogMode === 'view'}
                   >
-                    <MenuItem value="">None</MenuItem>
+                    <MenuItem value="">Select Account</MenuItem>
                     {customers.map(customer => (
                       <MenuItem key={customer.id} value={customer.id}>
                         {customer.firstName} {customer.lastName} - {customer.company}
                       </MenuItem>
                     ))}
                   </Select>
+                  {formErrors.customerId && (
+                    <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
+                      {formErrors.customerId}
+                    </Typography>
+                  )}
                 </FormControl>
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -754,6 +803,19 @@ const Deals: React.FC = () => {
                   value={form.notes}
                   onChange={(e) => setForm({ ...form, notes: e.target.value })}
                   disabled={dialogMode === 'view'}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Expected Close Date *"
+                  type="date"
+                  value={form.expectedCloseDate}
+                  onChange={(e) => setForm({ ...form, expectedCloseDate: e.target.value })}
+                  disabled={dialogMode === 'view'}
+                  error={!!formErrors.expectedCloseDate}
+                  helperText={formErrors.expectedCloseDate}
+                  InputLabelProps={{ shrink: true }}
                 />
               </Grid>
             </Grid>

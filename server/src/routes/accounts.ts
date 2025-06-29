@@ -15,15 +15,6 @@ router.get('/', authenticateToken, requirePermission(PERMISSIONS.ACCOUNTS_READ),
     // SYSTEM_ADMIN can see all accounts, others are filtered by tenant
     if (req.user.role !== 'SYSTEM_ADMIN') {
       where.tenantId = req.user.tenantId;
-      
-      // Add role-based filtering
-      if (req.user.role === 'SALES_REP') {
-        // Sales reps can only see accounts they manage
-        where.accountManagerId = req.user.id;
-      } else if (req.user.role === 'SALES_MANAGER' && req.user.businessUnitId) {
-        // Sales managers can see accounts in their business unit
-        where.businessUnitId = req.user.businessUnitId;
-      }
     }
     
     if (status && status !== 'all') {
@@ -37,23 +28,22 @@ router.get('/', authenticateToken, requirePermission(PERMISSIONS.ACCOUNTS_READ),
     if (search) {
       where.OR = [
         { name: { contains: search as string, mode: 'insensitive' } },
-        { email: { contains: search as string, mode: 'insensitive' } },
-        { phone: { contains: search as string, mode: 'insensitive' } },
-        { industry: { contains: search as string, mode: 'insensitive' } }
+        { registrationNumber: { contains: search as string, mode: 'insensitive' } },
+        { taxNumber: { contains: search as string, mode: 'insensitive' } }
       ];
     }
     
     const accounts = await prisma.account.findMany({
       where,
       include: {
+        tenant: {
+          select: { name: true }
+        },
         businessUnit: {
-          select: { name: true, location: true }
+          select: { name: true, city: true }
         },
         accountManager: {
           select: { firstName: true, lastName: true, email: true }
-        },
-        tenant: {
-          select: { name: true }
         }
       }
     });
@@ -71,15 +61,14 @@ router.get('/:id', authenticateToken, requirePermission(PERMISSIONS.ACCOUNTS_REA
     const account = await prisma.account.findUnique({
       where: { id: req.params.id },
       include: {
+        tenant: {
+          select: { name: true }
+        },
         businessUnit: {
-          select: { name: true, location: true }
+          select: { name: true, city: true }
         },
         accountManager: {
           select: { firstName: true, lastName: true, email: true }
-        },
-        contactPersons: true,
-        tenant: {
-          select: { name: true }
         }
       }
     });
@@ -95,67 +84,25 @@ router.get('/:id', authenticateToken, requirePermission(PERMISSIONS.ACCOUNTS_REA
   }
 });
 
-// POST new account (SYSTEM_ADMIN or SALES_MANAGER only)
+// POST new account
 router.post('/', authenticateToken, requirePermission(PERMISSIONS.ACCOUNTS_WRITE), async (req, res) => {
   try {
-    // Only SYSTEM_ADMIN or SALES_MANAGER can create accounts
-    if (!['SYSTEM_ADMIN', 'SALES_MANAGER'].includes(req.user.role)) {
-      return res.status(403).json({ error: 'Only system administrators or sales managers can create accounts' });
-    }
-
     const accountData = {
       ...req.body,
-      tenantId: req.user.tenantId // Automatically assign to user's tenant
+      tenantId: req.body.tenantId || req.user.tenantId // Use provided tenant or user's tenant
     };
-
-    // Handle empty string businessUnitId - convert to null
-    if (accountData.businessUnitId === '') {
-      accountData.businessUnitId = null;
-    }
-
-    // Handle empty string accountManagerId - convert to null
-    if (accountData.accountManagerId === '') {
-      accountData.accountManagerId = null;
-    }
-
-    // If user is SALES_MANAGER, ensure account is assigned to their business unit
-    if (req.user.role === 'SALES_MANAGER' && req.user.businessUnitId) {
-      accountData.businessUnitId = req.user.businessUnitId;
-    }
-
-    // Validate that the business unit exists if provided
-    if (accountData.businessUnitId) {
-      const businessUnit = await prisma.businessUnit.findUnique({
-        where: { id: accountData.businessUnitId }
-      });
-      
-      if (!businessUnit) {
-        return res.status(400).json({ error: 'Selected business unit does not exist' });
-      }
-    }
-
-    // Validate that the account manager exists if provided
-    if (accountData.accountManagerId) {
-      const accountManager = await prisma.user.findUnique({
-        where: { id: accountData.accountManagerId }
-      });
-      
-      if (!accountManager) {
-        return res.status(400).json({ error: 'Selected account manager does not exist' });
-      }
-    }
 
     const account = await prisma.account.create({
       data: accountData,
       include: {
+        tenant: {
+          select: { name: true }
+        },
         businessUnit: {
-          select: { name: true, location: true }
+          select: { name: true, city: true }
         },
         accountManager: {
           select: { firstName: true, lastName: true, email: true }
-        },
-        tenant: {
-          select: { name: true }
         }
       }
     });
@@ -167,141 +114,65 @@ router.post('/', authenticateToken, requirePermission(PERMISSIONS.ACCOUNTS_WRITE
   }
 });
 
-// PUT update account (SYSTEM_ADMIN or SALES_MANAGER only)
-// PUT update account (SYSTEM_ADMIN or SALES_MANAGER only)
+// PUT update account
 router.put('/:id', authenticateToken, requirePermission(PERMISSIONS.ACCOUNTS_WRITE), requireTenantAccess('account'), async (req, res) => {
   try {
-    console.log(`Attempting to update account with ID: ${req.params.id}`);
-    
-    // Only SYSTEM_ADMIN or SALES_MANAGER can edit accounts
-    if (!['SYSTEM_ADMIN', 'SALES_MANAGER'].includes(req.user.role)) {
-      return res.status(403).json({ error: 'Only system administrators or sales managers can edit accounts' });
-    }
-
-    // First, check if the account exists
-    const existingAccount = await prisma.account.findUnique({
-      where: { id: req.params.id }
-    });
-
-    if (!existingAccount) {
-      console.log(`Account with ID ${req.params.id} not found`);
-      return res.status(404).json({ error: 'Account not found' });
-    }
-
-    console.log(`Found account: ${existingAccount.name} (${existingAccount.id})`);
-
-    // If user is SALES_MANAGER, ensure they can only edit accounts in their business unit
-    if (req.user.role === 'SALES_MANAGER') {
-      if (existingAccount.businessUnitId !== req.user.businessUnitId) {
-        return res.status(403).json({ error: 'You can only edit accounts in your business unit' });
-      }
-    }
-
-    // Prepare update data - handle empty strings
-    const updateData = { ...req.body };
-    
-    // Handle empty string businessUnitId - convert to null
-    if (updateData.businessUnitId === '') {
-      updateData.businessUnitId = null;
-    }
-
-    // Handle empty string accountManagerId - convert to null
-    if (updateData.accountManagerId === '') {
-      updateData.accountManagerId = null;
-    }
-
-    // Validate that the business unit exists if provided
-    if (updateData.businessUnitId) {
-      const businessUnit = await prisma.businessUnit.findUnique({
-        where: { id: updateData.businessUnitId }
-      });
-      
-      if (!businessUnit) {
-        return res.status(400).json({ error: 'Selected business unit does not exist' });
-      }
-    }
-
-    // Validate that the account manager exists if provided
-    if (updateData.accountManagerId) {
-      const accountManager = await prisma.user.findUnique({
-        where: { id: updateData.accountManagerId }
-      });
-      
-      if (!accountManager) {
-        return res.status(400).json({ error: 'Selected account manager does not exist' });
-      }
-    }
-
     const account = await prisma.account.update({
       where: { id: req.params.id },
-      data: updateData,
+      data: req.body,
       include: {
+        tenant: {
+          select: { name: true }
+        },
         businessUnit: {
-          select: { name: true, location: true }
+          select: { name: true, city: true }
         },
         accountManager: {
           select: { firstName: true, lastName: true, email: true }
-        },
-        tenant: {
-          select: { name: true }
         }
       }
     });
 
-    console.log(`Successfully updated account: ${account.name}`);
     res.json(account);
   } catch (error) {
     console.error('Error updating account:', error);
-    
-    // Handle specific Prisma errors
-    if (error.code === 'P2025') {
-      return res.status(404).json({ error: 'Account not found' });
-    }
-    
     res.status(500).json({ error: 'Failed to update account' });
   }
 });
 
-// DELETE account (SYSTEM_ADMIN or SALES_MANAGER only)
-router.delete('/:id', authenticateToken, requirePermission(PERMISSIONS.ACCOUNTS_DELETE), requireTenantAccess('account'), async (req, res) => {
+// DELETE account
+router.delete('/:id', authenticateToken, requirePermission(PERMISSIONS.ACCOUNTS_DELETE), async (req, res) => {
   try {
-    // Only SYSTEM_ADMIN or SALES_MANAGER can delete accounts
-    if (!['SYSTEM_ADMIN', 'SALES_MANAGER'].includes(req.user.role)) {
-      return res.status(403).json({ error: 'Only system administrators or sales managers can delete accounts' });
-    }
-
-    // First, check if the account exists
+    // First check if the account exists
     const existingAccount = await prisma.account.findUnique({
-      where: { id: req.params.id }
+      where: { id: req.params.id },
+      include: {
+        deals: { select: { id: true, title: true } },
+        contactPersons: { select: { id: true, firstName: true, lastName: true } }
+      }
     });
 
     if (!existingAccount) {
       return res.status(404).json({ error: 'Account not found' });
     }
 
-    // If user is SALES_MANAGER, ensure they can only delete accounts in their business unit
-    if (req.user.role === 'SALES_MANAGER') {
-      if (existingAccount.businessUnitId !== req.user.businessUnitId) {
-        return res.status(403).json({ error: 'You can only delete accounts in your business unit' });
-      }
-    }
-
-    // Check if account has any related records that would prevent deletion
-    const hasDeals = await prisma.deal.findFirst({
-      where: { accountId: req.params.id }
-    });
-
-    const hasContactPersons = await prisma.contactPerson.findFirst({
-      where: { accountId: req.params.id }
-    });
-
+    // Check if account has associated deals or contact persons
+    const hasDeals = existingAccount.deals.length > 0;
+    const hasContactPersons = existingAccount.contactPersons.length > 0;
+    
     if (hasDeals || hasContactPersons) {
-      return res.status(400).json({ 
-        error: 'Cannot delete account that has associated deals or contact persons. Please remove these relationships first.' 
-      });
+      let errorMessage = 'Cannot delete account because it has:';
+      if (hasDeals) {
+        errorMessage += ` ${existingAccount.deals.length} deal(s)`;
+      }
+      if (hasContactPersons) {
+        errorMessage += ` ${existingAccount.contactPersons.length} contact person(s)`;
+      }
+      errorMessage += ' associated with it. Please delete these items first.';
+      
+      return res.status(400).json({ error: errorMessage });
     }
 
-    // Delete the account
     await prisma.account.delete({
       where: { id: req.params.id }
     });
@@ -309,12 +180,6 @@ router.delete('/:id', authenticateToken, requirePermission(PERMISSIONS.ACCOUNTS_
     res.status(204).send();
   } catch (error) {
     console.error('Error deleting account:', error);
-    
-    // Handle specific Prisma errors
-    if (error.code === 'P2025') {
-      return res.status(404).json({ error: 'Account not found' });
-    }
-    
     res.status(500).json({ error: 'Failed to delete account' });
   }
 });

@@ -3,7 +3,16 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "ts-node src/index.ts",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "cleanup-db": "ts-node cleanup-database.ts",
+    "seed-essential": "ts-node seed-essential.ts",
+    "reset-db": "ts-node reset-database.ts",
+    "cleanup-keep-permissions": "ts-node cleanup-keep-permissions.ts",
+    "seed-with-permissions": "ts-node seed-with-permissions.ts",
+    "reset-keep-permissions": "ts-node reset-keep-permissions.ts",
+    "restore-permissions": "ts-node restore-original-permissions.ts",
+    "setup-default-tenant": "ts-node setup-default-tenant.ts",
+    "fix-permissions": "ts-node fix-permission-mismatch.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.10.1",

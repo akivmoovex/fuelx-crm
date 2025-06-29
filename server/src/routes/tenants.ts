@@ -74,9 +74,9 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // POST new tenant (SYSTEM_ADMIN only)
 router.post('/', authenticateToken, requirePermission('tenants:write'), async (req, res) => {
   try {
-    const { name, type, status, notes } = req.body;
+    const { name, type, status, description } = req.body;
 
-    console.log('Creating tenant with data:', { name, type, status, notes });
+    console.log('Creating tenant with data:', { name, type, status, description });
 
     // Validate required fields
     if (!name || !type || !status) {
@@ -103,7 +103,7 @@ router.post('/', authenticateToken, requirePermission('tenants:write'), async (r
         name: name.trim(),
         type,
         status,
-        notes: notes?.trim() || null
+        description: description?.trim() || null
       }
     });
 
@@ -140,10 +140,10 @@ router.post('/', authenticateToken, requirePermission('tenants:write'), async (r
 // PUT update tenant (SYSTEM_ADMIN only)
 router.put('/:id', authenticateToken, requirePermission('tenants:write'), async (req, res) => {
   try {
-    const { name, type, status, notes } = req.body;
+    const { name, type, status, description } = req.body;
     const tenantId = req.params.id;
 
-    console.log('Updating tenant:', tenantId, { name, type, status, notes });
+    console.log('Updating tenant:', tenantId, { name, type, status, description });
 
     // Validate required fields
     if (!name || !type || !status) {
@@ -183,7 +183,7 @@ router.put('/:id', authenticateToken, requirePermission('tenants:write'), async 
         name: name.trim(),
         type,
         status,
-        notes: notes?.trim() || null
+        description: description?.trim() || null
       }
     });
 
@@ -218,14 +218,21 @@ router.put('/:id', authenticateToken, requirePermission('tenants:write'), async 
 });
 
 // DELETE tenant (SYSTEM_ADMIN only)
-router.delete('/:id', authenticateToken, requirePermission('tenants:delete'), async (req, res) => {
+router.delete('/:id', authenticateToken, requirePermission('tenants:write'), async (req, res) => {
   try {
     const tenantId = req.params.id;
 
-    console.log('Deleting tenant:', tenantId);
-
     // Check if tenant exists
-    const tenant = await prisma.tenant.findUnique({
+    const existingTenant = await prisma.tenant.findUnique({
+      where: { id: tenantId }
+    });
+
+    if (!existingTenant) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    // Check if tenant has any related data
+    const relatedData = await prisma.tenant.findUnique({
       where: { id: tenantId },
       include: {
         _count: {
@@ -238,24 +245,23 @@ router.delete('/:id', authenticateToken, requirePermission('tenants:delete'), as
       }
     });
 
-    if (!tenant) {
-      return res.status(404).json({ error: 'Tenant not found' });
-    }
-
-    // Check if tenant has associated data
-    if (tenant._count.users > 0 || tenant._count.businessUnits > 0 || tenant._count.accounts > 0) {
+    if (relatedData && (
+      relatedData._count.users > 0 || 
+      relatedData._count.businessUnits > 0 || 
+      relatedData._count.accounts > 0
+    )) {
       return res.status(400).json({ 
-        error: 'Cannot delete tenant with associated users, business units, or accounts' 
+        error: 'Cannot delete tenant with existing users, business units, or accounts' 
       });
     }
 
+    // Delete the tenant
     await prisma.tenant.delete({
       where: { id: tenantId }
     });
 
     console.log('Tenant deleted successfully:', tenantId);
-
-    res.json({ message: 'Tenant deleted successfully' });
+    res.status(204).send();
   } catch (error) {
     console.error('Error deleting tenant:', error);
     res.status(500).json({ error: 'Failed to delete tenant' });

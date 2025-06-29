@@ -2,8 +2,8 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-async function cleanupDatabase() {
-  console.log('Starting database cleanup...');
+async function cleanupKeepPermissions() {
+  console.log('Starting database cleanup (keeping permissions)...');
 
   try {
     // Start a transaction to ensure data consistency
@@ -23,46 +23,14 @@ async function cleanupDatabase() {
       console.log('Deleting all customers...');
       await tx.customer.deleteMany({});
 
+      console.log('Deleting all users...');
+      await tx.user.deleteMany({});
+
       console.log('Deleting all business units...');
       await tx.businessUnit.deleteMany({});
 
-      console.log('Deleting all non-system-admin users...');
-      await tx.user.deleteMany({
-        where: {
-          role: {
-            not: 'SYSTEM_ADMIN'
-          }
-        }
-      });
-
-      console.log('Deleting all tenants except the default one...');
-      // Keep only the first tenant (usually the default one)
-      const tenants = await tx.tenant.findMany({
-        orderBy: { id: 'asc' }
-      });
-
-      if (tenants.length > 1) {
-        const tenantIdsToDelete = tenants.slice(1).map(t => t.id);
-        await tx.tenant.deleteMany({
-          where: {
-            id: {
-              in: tenantIdsToDelete
-            }
-          }
-        });
-        console.log(`Deleted ${tenantIdsToDelete.length} extra tenants`);
-      }
-
-      // Update remaining users to use the first tenant
-      const remainingTenant = await tx.tenant.findFirst();
-      if (remainingTenant) {
-        await tx.user.updateMany({
-          data: {
-            tenantId: remainingTenant.id
-          }
-        });
-        console.log('Updated remaining users to use the default tenant');
-      }
+      console.log('Deleting all tenants...');
+      await tx.tenant.deleteMany({});
 
       console.log('Database cleanup completed successfully!');
     });
@@ -126,7 +94,7 @@ async function getDatabaseStats() {
 }
 
 // Run the cleanup
-cleanupDatabase()
+cleanupKeepPermissions()
   .then(() => {
     console.log('Database cleanup completed successfully!');
     process.exit(0);

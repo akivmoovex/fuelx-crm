@@ -26,14 +26,11 @@ const BusinessUnits: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: '',
-    location: '',
     address: '',
     city: '',
     state: '',
     postalCode: '',
-    country: '',
-    phone: '',
-    email: '',
+    country: 'Zambia', // Default to Zambia
     status: 'active',
     managerId: '',
     tenantId: ''
@@ -42,9 +39,19 @@ const BusinessUnits: React.FC = () => {
   const [search, setSearch] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const [tenants, setTenants] = useState<any[]>([]);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
 
   // Get filters from URL params
   const statusFilter = searchParams.get('status') || 'all';
+
+  // Debug: Log user and permissions
+  useEffect(() => {
+    console.log('Current user:', user);
+    console.log('User permissions:', user?.permissions);
+    console.log('Has business-units:write permission:', hasPermission('business-units:write'));
+    console.log('User role:', user?.role);
+  }, [user, hasPermission]);
 
   // Fetch business units
   const fetchBusinessUnits = async () => {
@@ -52,6 +59,7 @@ const BusinessUnits: React.FC = () => {
       setLoading(true);
       setError(null);
       const data = await apiClient.get<BusinessUnit[]>('/api/business-units');
+      console.log('Fetched business units:', data);
       setBusinessUnits(data);
     } catch (err) {
       console.error('Error fetching business units:', err);
@@ -89,33 +97,28 @@ const BusinessUnits: React.FC = () => {
   const handleOpen = (mode: 'view' | 'edit' | 'add', businessUnit?: BusinessUnit) => {
     setDialogMode(mode);
     setSelectedBusinessUnit(businessUnit || null);
+    setFormErrors({});
 
     if (mode === 'add') {
       setForm({
         name: '',
-        location: '',
         address: '',
         city: '',
         state: '',
         postalCode: '',
-        country: '',
-        phone: '',
-        email: '',
+        country: 'Zambia', // Default to Zambia
         status: 'active',
         managerId: '',
-        tenantId: ''
+        tenantId: user?.tenantId || ''
       });
     } else if (businessUnit) {
       setForm({
         name: businessUnit.name,
-        location: businessUnit.location || '',
         address: businessUnit.address || '',
         city: businessUnit.city || '',
         state: businessUnit.state || '',
         postalCode: businessUnit.postalCode || '',
-        country: businessUnit.country || '',
-        phone: businessUnit.phone || '',
-        email: businessUnit.email || '',
+        country: businessUnit.country || 'Zambia',
         status: businessUnit.status,
         managerId: businessUnit.managerId || '',
         tenantId: businessUnit.tenantId || ''
@@ -128,12 +131,37 @@ const BusinessUnits: React.FC = () => {
   const handleClose = () => {
     setOpen(false);
     setSelectedBusinessUnit(null);
+    setSaveLoading(false);
+    setFormErrors({});
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const validateForm = () => {
+    const errors: {[key: string]: string} = {};
+    
+    if (!form.name.trim()) errors.name = 'Business unit name is required';
+    if (!form.city.trim()) errors.city = 'City is required';
+    if (!form.state.trim()) errors.state = 'State/Province is required';
+    if (!form.country.trim()) errors.country = 'Country is required';
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Fixed save function
+  const handleSave = async () => {
+    if (!validateForm()) {
+      setSnackbar({
+        open: true,
+        message: 'Please fill in all required fields correctly.',
+        severity: 'error'
+      });
+      return;
+    }
 
     try {
+      setSaveLoading(true);
+      console.log('Saving business unit:', form);
+
       if (dialogMode === 'edit' && selectedBusinessUnit) {
         await apiClient.put(`/api/business-units/${selectedBusinessUnit.id}`, form);
         setSnackbar({ open: true, message: 'Business unit updated successfully!', severity: 'success' });
@@ -145,12 +173,14 @@ const BusinessUnits: React.FC = () => {
       fetchBusinessUnits();
       handleClose();
     } catch (error) {
-      console.error('Error submitting business unit:', error);
+      console.error('Error saving business unit:', error);
       setSnackbar({
         open: true,
         message: error instanceof Error ? error.message : 'An error occurred while saving the business unit.',
         severity: 'error'
       });
+    } finally {
+      setSaveLoading(false);
     }
   };
 
@@ -201,22 +231,6 @@ const BusinessUnits: React.FC = () => {
     }
   };
 
-  // Filtering
-  const filteredBusinessUnits = businessUnits.filter(businessUnit => {
-    const searchLower = search.toLowerCase();
-    const nameMatch = businessUnit.name.toLowerCase().includes(searchLower);
-    const locationMatch = businessUnit.location.toLowerCase().includes(searchLower);
-    const cityMatch = businessUnit.city.toLowerCase().includes(searchLower);
-
-    // Apply status filter
-    const statusMatch = statusFilter === 'all' || businessUnit.status === statusFilter;
-
-    return (nameMatch || locationMatch || cityMatch) && statusMatch;
-  });
-
-  const sortedBusinessUnits = filteredBusinessUnits;
-
-  // Get status color
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'success';
@@ -225,6 +239,28 @@ const BusinessUnits: React.FC = () => {
       default: return 'default';
     }
   };
+
+  // Filter and sort business units - FIXED LOGIC
+  const filteredBusinessUnits = businessUnits.filter(businessUnit => {
+    // First apply search filter
+    if (search.trim()) {
+      const searchLower = search.toLowerCase();
+      const nameMatch = businessUnit.name.toLowerCase().includes(searchLower);
+      const cityMatch = (businessUnit.city || '').toLowerCase().includes(searchLower);
+      const statusMatch = businessUnit.status.toLowerCase().includes(searchLower);
+
+      if (!nameMatch && !cityMatch && !statusMatch) {
+        return false;
+      }
+    }
+
+    // Then apply status filter
+    if (statusFilter !== 'all' && businessUnit.status !== statusFilter) {
+      return false;
+    }
+
+    return true;
+  });
 
   if (loading) {
     return (
@@ -270,7 +306,14 @@ const BusinessUnits: React.FC = () => {
               Manage your business units and locations
             </Typography>
           </Box>
-          {hasPermission('business_units:write') && (
+          {/* Debug info */}
+          <Box sx={{ fontSize: '0.8rem', opacity: 0.8 }}>
+            <div>Role: {user?.role}</div>
+            <div>Has Write: {hasPermission('business-units:write') ? 'Yes' : 'No'}</div>
+            <div>Permissions: {user?.permissions?.join(', ') || 'None'}</div>
+          </Box>
+          {/* Show button for SYSTEM_ADMIN or users with permission */}
+          {(user?.role === 'SYSTEM_ADMIN' || hasPermission('business-units:write')) && (
             <Button
               variant="contained"
               startIcon={<Add />}
@@ -399,6 +442,14 @@ const BusinessUnits: React.FC = () => {
         </Box>
       </Paper>
 
+      {/* Debug info */}
+      <Box sx={{ mb: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1, fontSize: '0.8rem' }}>
+        <div>Total Business Units: {businessUnits.length}</div>
+        <div>Filtered Results: {filteredBusinessUnits.length}</div>
+        <div>Search Term: "{search}"</div>
+        <div>Status Filter: {statusFilter}</div>
+      </Box>
+
       {/* Desktop Table */}
       <Box sx={{ display: { xs: 'none', md: 'block' } }}>
         <Paper sx={{ overflow: 'hidden', borderRadius: 3 }}>
@@ -407,7 +458,7 @@ const BusinessUnits: React.FC = () => {
               <TableHead>
                 <TableRow sx={{ backgroundColor: 'grey.50' }}>
                   <TableCell>Name</TableCell>
-                  <TableCell>Location</TableCell>
+                  <TableCell>Address</TableCell>
                   <TableCell>City</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Manager</TableCell>
@@ -415,14 +466,14 @@ const BusinessUnits: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {sortedBusinessUnits.map((businessUnit) => (
+                {filteredBusinessUnits.map((businessUnit) => (
                   <TableRow key={businessUnit.id} hover>
                     <TableCell>
                       <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
                         {businessUnit.name}
                       </Typography>
                     </TableCell>
-                    <TableCell>{businessUnit.location}</TableCell>
+                    <TableCell>{businessUnit.address || 'No address'}</TableCell>
                     <TableCell>{businessUnit.city}</TableCell>
                     <TableCell>
                       <Chip
@@ -445,7 +496,7 @@ const BusinessUnits: React.FC = () => {
                             <Visibility />
                           </IconButton>
                         </Tooltip>
-                        {hasPermission('business_units:write') && (
+                        {(user?.role === 'SYSTEM_ADMIN' || hasPermission('business-units:write')) && (
                           <Tooltip title="Edit">
                             <IconButton
                               size="small"
@@ -456,7 +507,7 @@ const BusinessUnits: React.FC = () => {
                             </IconButton>
                           </Tooltip>
                         )}
-                        {hasPermission('business_units:delete') && (
+                        {(user?.role === 'SYSTEM_ADMIN' || hasPermission('business-units:write')) && (
                           <Tooltip title="Delete">
                             <IconButton
                               size="small"
@@ -479,573 +530,118 @@ const BusinessUnits: React.FC = () => {
 
       {/* Mobile Cards */}
       <Box sx={{ display: { xs: 'block', md: 'none' } }}>
-        {sortedBusinessUnits.map((businessUnit) => (
-          <Card
-            key={businessUnit.id}
-            sx={{
-              mb: 2,
-              cursor: 'pointer',
-              borderRadius: 3,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-              background: 'rgba(255,255,255,0.95)',
-              backdropFilter: 'blur(10px)',
-              '&:hover': {
-                boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
-                transform: 'translateY(-2px)',
-                transition: 'all 0.3s ease'
-              }
-            }}
-            onClick={() => handleOpen('view', businessUnit)}
-          >
-            <CardContent sx={{ p: 0 }}>
-              {/* Header with Status Badge */}
-              <Box sx={{
-                p: 2.5,
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                color: 'white',
-                borderRadius: '12px 12px 0 0'
+        <Grid container spacing={2}>
+          {filteredBusinessUnits.map((businessUnit) => (
+            <Grid item xs={12} key={businessUnit.id}>
+              <Card sx={{ 
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: 4
+                }
               }}>
-                <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                  <Box flex={1} minWidth={0}>
-                    <Typography
-                      variant="h6"
-                      sx={{
-                        fontWeight: 'bold',
-                        mb: 0.5,
-                        fontSize: '1.1rem',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}
-                    >
-                      {businessUnit.name}
-                    </Typography>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <LocationOn sx={{ fontSize: 16, opacity: 0.9 }} />
+                <CardContent sx={{ p: 2 }}>
+                  <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                    <Box flex={1} minWidth={0}>
                       <Typography
-                        variant="body2"
+                        variant="h6"
                         sx={{
-                          opacity: 0.9,
+                          fontWeight: 'bold',
+                          mb: 0.5,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap'
                         }}
                       >
-                        {businessUnit.location}
+                        {businessUnit.name}
                       </Typography>
+                      <Chip
+                        label={businessUnit.status}
+                        size="small"
+                        color={getStatusColor(businessUnit.status) as any}
+                        sx={{ fontSize: '0.7rem' }}
+                      />
                     </Box>
                   </Box>
-                  <Chip
-                    label={businessUnit.status.toUpperCase()}
-                    size="small"
-                    sx={{
-                      ml: 1,
-                      fontWeight: 'bold',
-                      fontSize: '0.7rem',
-                      height: 24,
-                      backgroundColor: 'rgba(255,255,255,0.2)',
-                      color: 'white'
-                    }}
-                  />
-                </Box>
-              </Box>
 
-              {/* Content Section */}
-              <Box sx={{ p: 2.5 }}>
-                {/* Key Information Cards */}
-                <Grid container spacing={1.5} mb={2}>
-                  <Grid item xs={6}>
-                    <Box sx={{
-                      p: 1.5,
-                      bgcolor: 'grey.50',
-                      borderRadius: 2,
-                      textAlign: 'center'
-                    }}>
-                      <Typography variant="caption" color="textSecondary" display="block" sx={{ mb: 0.5, fontWeight: 600 }}>
-                        City
+                  <Box sx={{ mb: 2 }}>
+                    {businessUnit.address && (
+                      <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
+                        <LocationOn sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} />
+                        {businessUnit.address}
                       </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                        {businessUnit.city || 'N/A'}
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Box sx={{
-                      p: 1.5,
-                      bgcolor: 'grey.50',
-                      borderRadius: 2,
-                      textAlign: 'center'
-                    }}>
-                      <Typography variant="caption" color="textSecondary" display="block" sx={{ mb: 0.5, fontWeight: 600 }}>
-                        Manager
-                      </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                        {businessUnit.manager ? `${businessUnit.manager.firstName} ${businessUnit.manager.lastName}` : 'No manager'}
-                      </Typography>
-                    </Box>
-                  </Grid>
-                </Grid>
-
-                {/* Contact Information */}
-                {(businessUnit.email || businessUnit.phone) && (
-                  <Box
-                    sx={{
-                      mb: 2,
-                      p: 1.5,
-                      bgcolor: 'primary.50',
-                      borderRadius: 2,
-                      border: '1px solid',
-                      borderColor: 'primary.200'
-                    }}
-                  >
-                    <Typography variant="caption" color="primary.main" display="block" sx={{ mb: 1, fontWeight: 600 }}>
-                      Contact Information
+                    )}
+                    <Typography variant="body2" color="textSecondary">
+                      {businessUnit.city}, {businessUnit.state}
                     </Typography>
-                    {businessUnit.email && (
-                      <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-                        <Typography variant="body2" sx={{ color: 'primary.main' }}>✉️</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          {businessUnit.email}
-                        </Typography>
-                      </Box>
-                    )}
-                    {businessUnit.phone && (
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Typography variant="body2" sx={{ color: 'primary.main' }}>📞</Typography>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          {businessUnit.phone}
-                        </Typography>
-                      </Box>
+                  </Box>
+
+                  <Box display="flex" gap={1} justifyContent="center">
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => handleOpen('view', businessUnit)}
+                      startIcon={<Visibility />}
+                      sx={{ flex: 1 }}
+                    >
+                      View
+                    </Button>
+                    {(user?.role === 'SYSTEM_ADMIN' || hasPermission('business-units:write')) && (
+                      <>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => handleOpen('edit', businessUnit)}
+                          startIcon={<Edit />}
+                          sx={{ flex: 1 }}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          onClick={() => handleDelete(businessUnit.id)}
+                          startIcon={<Delete />}
+                          sx={{ flex: 1 }}
+                        >
+                          Delete
+                        </Button>
+                      </>
                     )}
                   </Box>
-                )}
-
-                {/* Action Buttons */}
-                <Box
-                  display="flex"
-                  gap={1}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Button
-                    variant="contained"
-                    size="small"
-                    onClick={() => handleOpen('view', businessUnit)}
-                    startIcon={<Visibility />}
-                    sx={{
-                      flex: 1,
-                      borderRadius: 2,
-                      textTransform: 'none',
-                      fontWeight: 600,
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-                    }}
-                  >
-                    View
-                  </Button>
-                  {hasPermission('business_units:write') && (
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={() => handleOpen('edit', businessUnit)}
-                      startIcon={<Edit />}
-                      sx={{
-                        flex: 1,
-                        borderRadius: 2,
-                        textTransform: 'none',
-                        fontWeight: 600
-                      }}
-                    >
-                      Edit
-                    </Button>
-                  )}
-                  {hasPermission('business_units:delete') && (
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={() => handleDelete(businessUnit.id)}
-                      startIcon={<Delete />}
-                      sx={{
-                        flex: 1,
-                        borderRadius: 2,
-                        textTransform: 'none',
-                        fontWeight: 600,
-                        borderColor: 'error.main',
-                        color: 'error.main'
-                      }}
-                    >
-                      Delete
-                    </Button>
-                  )}
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        ))}
-
-        {/* Empty State */}
-        {sortedBusinessUnits.length === 0 && (
-          <Box
-            sx={{
-              textAlign: 'center',
-              py: 8,
-              px: 2,
-              bgcolor: 'rgba(255,255,255,0.8)',
-              borderRadius: 3,
-              border: '2px dashed',
-              borderColor: 'grey.300'
-            }}
-          >
-            <Business sx={{ fontSize: 48, color: 'grey.400', mb: 2 }} />
-            <Typography variant="h6" color="textSecondary" sx={{ mb: 1 }}>
-              No Business Units Found
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              {search || statusFilter !== 'all'
-                ? 'Try adjusting your search or filters'
-                : 'Get started by adding your first business unit'
-              }
-            </Typography>
-          </Box>
-        )}
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
       </Box>
 
-      {/* Business Unit Dialog */}
-      <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
-        <DialogTitle sx={{
-          background: dialogMode === 'view' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'primary.main',
-          color: 'white',
-          pb: 2
+      {/* Empty State */}
+      {filteredBusinessUnits.length === 0 && (
+        <Box sx={{ 
+          textAlign: 'center', 
+          py: 8, 
+          px: 2,
+          bgcolor: 'grey.50',
+          borderRadius: 3
         }}>
-          <Box display="flex" alignItems="center" justifyContent="space-between">
-            <Box display="flex" alignItems="center">
-              <Business sx={{ mr: 2, fontSize: 28 }} />
-              <Box>
-                <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                  {dialogMode === 'add' ? 'Add New Business Unit' :
-                    dialogMode === 'edit' ? 'Edit Business Unit' : 'Business Unit Details'}
-                </Typography>
-                <Typography variant="body2" sx={{ opacity: 0.9, mt: 0.5 }}>
-                  {dialogMode === 'add' ? 'Create a new business unit for your organization' :
-                    dialogMode === 'edit' ? 'Update business unit information' :
-                      'View complete business unit information'}
-                </Typography>
-              </Box>
-            </Box>
-            {dialogMode === 'view' && (
-              <Chip
-                label={form.status}
-                color={getStatusColor(form.status) as any}
-                sx={{ color: 'white', fontWeight: 'bold' }}
-              />
-            )}
-          </Box>
-        </DialogTitle>
-
-        <DialogContent sx={{ p: 3 }}>
-          <Box component="form" onSubmit={handleSubmit}>
-            {/* Basic Information Section */}
-            <Paper sx={{ p: 3, mb: 3, background: 'rgba(102, 126, 234, 0.05)' }}>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', color: 'primary.main' }}>
-                <Business sx={{ mr: 1, verticalAlign: 'middle' }} />
-                Basic Information
-              </Typography>
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={8}>
-                  <TextField
-                    fullWidth
-                    label="Business Unit Name"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    required
-                    disabled={dialogMode === 'view'}
-                    sx={dialogMode === 'view' ? {
-                      '& .MuiInputBase-input': { color: 'black', fontWeight: 'bold' },
-                      '& .MuiInputLabel-root': { color: 'rgba(0, 0, 0, 0.7)' },
-                      '& .MuiOutlinedInput-root': {
-                        '& fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' },
-                        '&:hover fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' }
-                      }
-                    } : {}}
-                  />
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <FormControl fullWidth>
-                    <InputLabel>Status</InputLabel>
-                    <Select
-                      value={form.status}
-                      label="Status"
-                      onChange={(e) => setForm({ ...form, status: e.target.value })}
-                      disabled={dialogMode === 'view'}
-                      sx={dialogMode === 'view' ? {
-                        '& .MuiSelect-select': { color: 'black', fontWeight: 'bold' },
-                        '& .MuiInputLabel-root': { color: 'rgba(0, 0, 0, 0.7)' },
-                        '& .MuiOutlinedInput-root': {
-                          '& fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' },
-                          '&:hover fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' }
-                        }
-                      } : {}}
-                    >
-                      {statusOptions.map(status => (
-                        <MenuItem key={status} value={status}>
-                          {status.charAt(0).toUpperCase() + status.slice(1)}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </Grid>
-            </Paper>
-
-            {/* Location Information Section */}
-            <Paper sx={{ p: 3, mb: 3, background: 'rgba(76, 175, 80, 0.05)' }}>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', color: 'success.main' }}>
-                <LocationOn sx={{ mr: 1, verticalAlign: 'middle' }} />
-                Location Information
-              </Typography>
-              <Grid container spacing={3}>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Location"
-                    value={form.location}
-                    onChange={(e) => setForm({ ...form, location: e.target.value })}
-                    required
-                    disabled={dialogMode === 'view'}
-                    sx={dialogMode === 'view' ? {
-                      '& .MuiInputBase-input': { color: 'black' },
-                      '& .MuiInputLabel-root': { color: 'rgba(0, 0, 0, 0.7)' },
-                      '& .MuiOutlinedInput-root': {
-                        '& fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' },
-                        '&:hover fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' }
-                      }
-                    } : {}}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Address"
-                    value={form.address}
-                    onChange={(e) => setForm({ ...form, address: e.target.value })}
-                    required
-                    disabled={dialogMode === 'view'}
-                    multiline
-                    rows={3}
-                    sx={dialogMode === 'view' ? {
-                      '& .MuiInputBase-input': { color: 'black' },
-                      '& .MuiInputLabel-root': { color: 'rgba(0, 0, 0, 0.7)' },
-                      '& .MuiOutlinedInput-root': {
-                        '& fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' },
-                        '&:hover fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' }
-                      }
-                    } : {}}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <TextField
-                    fullWidth
-                    label="City"
-                    value={form.city}
-                    onChange={(e) => setForm({ ...form, city: e.target.value })}
-                    required
-                    disabled={dialogMode === 'view'}
-                    sx={dialogMode === 'view' ? {
-                      '& .MuiInputBase-input': { color: 'black' },
-                      '& .MuiInputLabel-root': { color: 'rgba(0, 0, 0, 0.7)' },
-                      '& .MuiOutlinedInput-root': {
-                        '& fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' },
-                        '&:hover fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' }
-                      }
-                    } : {}}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <TextField
-                    fullWidth
-                    label="State/Province"
-                    value={form.state}
-                    onChange={(e) => setForm({ ...form, state: e.target.value })}
-                    disabled={dialogMode === 'view'}
-                    sx={dialogMode === 'view' ? {
-                      '& .MuiInputBase-input': { color: 'black' },
-                      '& .MuiInputLabel-root': { color: 'rgba(0, 0, 0, 0.7)' },
-                      '& .MuiOutlinedInput-root': {
-                        '& fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' },
-                        '&:hover fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' }
-                      }
-                    } : {}}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <TextField
-                    fullWidth
-                    label="Postal Code"
-                    value={form.postalCode}
-                    onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
-                    disabled={dialogMode === 'view'}
-                    sx={dialogMode === 'view' ? {
-                      '& .MuiInputBase-input': { color: 'black' },
-                      '& .MuiInputLabel-root': { color: 'rgba(0, 0, 0, 0.7)' },
-                      '& .MuiOutlinedInput-root': {
-                        '& fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' },
-                        '&:hover fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' }
-                      }
-                    } : {}}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                  <TextField
-                    fullWidth
-                    label="Country"
-                    value={form.country}
-                    onChange={(e) => setForm({ ...form, country: e.target.value })}
-                    required
-                    disabled={dialogMode === 'view'}
-                    sx={dialogMode === 'view' ? {
-                      '& .MuiInputBase-input': { color: 'black' },
-                      '& .MuiInputLabel-root': { color: 'rgba(0, 0, 0, 0.7)' },
-                      '& .MuiOutlinedInput-root': {
-                        '& fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' },
-                        '&:hover fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' }
-                      }
-                    } : {}}
-                  />
-                </Grid>
-              </Grid>
-            </Paper>
-
-            {/* Contact Information Section */}
-            <Paper sx={{ p: 3, mb: 3, background: 'rgba(255, 152, 0, 0.05)' }}>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', color: 'warning.main' }}>
-                <Phone sx={{ mr: 1, verticalAlign: 'middle' }} />
-                Contact Information
-              </Typography>
-              <Grid container spacing={3}>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Phone"
-                    value={form.phone}
-                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                    required
-                    disabled={dialogMode === 'view'}
-                    sx={dialogMode === 'view' ? {
-                      '& .MuiInputBase-input': { color: 'black' },
-                      '& .MuiInputLabel-root': { color: 'rgba(0, 0, 0, 0.7)' },
-                      '& .MuiOutlinedInput-root': {
-                        '& fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' },
-                        '&:hover fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' }
-                      }
-                    } : {}}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Email"
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    required
-                    disabled={dialogMode === 'view'}
-                    sx={dialogMode === 'view' ? {
-                      '& .MuiInputBase-input': { color: 'black' },
-                      '& .MuiInputLabel-root': { color: 'rgba(0, 0, 0, 0.7)' },
-                      '& .MuiOutlinedInput-root': {
-                        '& fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' },
-                        '&:hover fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' }
-                      }
-                    } : {}}
-                  />
-                </Grid>
-              </Grid>
-            </Paper>
-
-            {/* Management Information Section */}
-            <Paper sx={{ p: 3, background: 'rgba(156, 39, 176, 0.05)' }}>
-              <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', color: 'secondary.main' }}>
-                <People sx={{ mr: 1, verticalAlign: 'middle' }} />
-                Management Information
-              </Typography>
-              <Grid container spacing={3}>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Manager</InputLabel>
-                    <Select
-                      value={form.managerId}
-                      label="Manager"
-                      onChange={(e) => setForm({ ...form, managerId: e.target.value })}
-                      disabled={dialogMode === 'view'}
-                      sx={dialogMode === 'view' ? {
-                        '& .MuiSelect-select': { color: 'black' },
-                        '& .MuiInputLabel-root': { color: 'rgba(0, 0, 0, 0.7)' },
-                        '& .MuiOutlinedInput-root': {
-                          '& fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' },
-                          '&:hover fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' }
-                        }
-                      } : {}}
-                    >
-                      <MenuItem value="">No manager</MenuItem>
-                      {users.map(user => (
-                        <MenuItem key={user.id} value={user.id}>
-                          {user.firstName} {user.lastName}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <FormControl fullWidth required>
-                    <InputLabel>Tenant</InputLabel>
-                    <Select
-                      value={form.tenantId}
-                      label="Tenant"
-                      onChange={(e) => setForm({ ...form, tenantId: e.target.value })}
-                      disabled={dialogMode === 'view'}
-                      sx={dialogMode === 'view' ? {
-                        '& .MuiSelect-select': { color: 'black' },
-                        '& .MuiInputLabel-root': { color: 'rgba(0, 0, 0, 0.7)' },
-                        '& .MuiOutlinedInput-root': {
-                          '& fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' },
-                          '&:hover fieldset': { borderColor: 'rgba(0, 0, 0, 0.23)' }
-                        }
-                      } : {}}
-                    >
-                      {tenants.map(tenant => (
-                        <MenuItem key={tenant.id} value={tenant.id}>
-                          {tenant.name} ({tenant.type})
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </Grid>
-            </Paper>
-          </Box>
-        </DialogContent>
-
-        <DialogActions sx={{ p: 3, pt: 0 }}>
-          {dialogMode !== 'view' && (
-            <Button onClick={handleClose} disabled={loading} variant="outlined">
-              Cancel
-            </Button>
-          )}
-          {dialogMode !== 'view' && hasPermission('business_units:write') && (
-            <Button
-              onClick={handleSubmit}
-              variant="contained"
-              disabled={loading}
-              startIcon={loading ? <CircularProgress size={16} /> : null}
-            >
-              {loading ? 'Saving...' : (dialogMode === 'add' ? 'Add Business Unit' : 'Update Business Unit')}
-            </Button>
-          )}
-          {dialogMode === 'view' && (
-            <Button onClick={handleClose} variant="contained" startIcon={<Close />}>
-              Close
-            </Button>
-          )}
-        </DialogActions>
-      </Dialog>
+          <Business sx={{ fontSize: 64, color: 'grey.400', mb: 2 }} />
+          <Typography variant="h5" sx={{ mb: 1, color: 'grey.600' }}>
+            {search || statusFilter !== 'all'
+              ? 'No business units found'
+              : 'No business units yet'
+            }
+          </Typography>
+          <Typography variant="body2" color="textSecondary">
+            {search || statusFilter !== 'all'
+              ? 'Try adjusting your search or filters'
+              : 'Get started by adding your first business unit'
+            }
+          </Typography>
+        </Box>
+      )}
 
       {/* Snackbar */}
       <Snackbar
@@ -1061,6 +657,236 @@ const BusinessUnits: React.FC = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Business Unit Dialog */}
+      <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+        <DialogTitle sx={{
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          p: { xs: 2, md: 3 }
+        }}>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+              {dialogMode === 'add' && 'Add New Business Unit'}
+              {dialogMode === 'edit' && 'Edit Business Unit'}
+              {dialogMode === 'view' && 'Business Unit Details'}
+            </Typography>
+            {dialogMode === 'view' && (
+              <Chip
+                label={form.status.toUpperCase()}
+                size="small"
+                sx={{
+                  backgroundColor: getStatusColor(form.status) === 'success' ? '#4caf50' : 
+                                getStatusColor(form.status) === 'error' ? '#f44336' : '#ff9800',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  fontSize: '0.7rem'
+                }}
+              />
+            )}
+          </Box>
+          <IconButton
+            onClick={handleClose}
+            sx={{ color: 'white' }}
+          >
+            <Close />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent sx={{ p: { xs: 2, md: 3 } }}>
+          {/* Basic Information */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6" sx={{ 
+              fontWeight: 'bold', 
+              color: 'primary.main',
+              mb: 2,
+              display: 'flex',
+              alignItems: 'center'
+            }}>
+              <Business sx={{ mr: 1 }} />
+              Basic Information
+            </Typography>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Business Unit Name *"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  disabled={dialogMode === 'view'}
+                  error={!!formErrors.name}
+                  helperText={formErrors.name}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    value={form.status}
+                    label="Status"
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    disabled={dialogMode === 'view'}
+                  >
+                    {statusOptions.map(status => (
+                      <MenuItem key={status} value={status}>
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </Box>
+
+          {/* Location Information */}
+          <Box sx={{
+            mb: 3,
+            p: { xs: 2, md: 3 },
+            bgcolor: 'grey.50',
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'grey.200'
+          }}>
+            <Box display="flex" alignItems="center" mb={2}>
+              <LocationOn sx={{ mr: 1, color: 'primary.main' }} />
+              <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                Location Information
+              </Typography>
+            </Box>
+            
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Address (Optional)"
+                  value={form.address}
+                  onChange={(e) => setForm({ ...form, address: e.target.value })}
+                  disabled={dialogMode === 'view'}
+                  multiline
+                  rows={2}
+                  helperText="Street address is optional"
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="City *"
+                  value={form.city}
+                  onChange={(e) => setForm({ ...form, city: e.target.value })}
+                  disabled={dialogMode === 'view'}
+                  error={!!formErrors.city}
+                  helperText={formErrors.city}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="State/Province *"
+                  value={form.state}
+                  onChange={(e) => setForm({ ...form, state: e.target.value })}
+                  disabled={dialogMode === 'view'}
+                  error={!!formErrors.state}
+                  helperText={formErrors.state}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  fullWidth
+                  label="Postal Code"
+                  value={form.postalCode}
+                  onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
+                  disabled={dialogMode === 'view'}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Country *"
+                  value={form.country}
+                  onChange={(e) => setForm({ ...form, country: e.target.value })}
+                  disabled={dialogMode === 'view'}
+                  error={!!formErrors.country}
+                  helperText={formErrors.country}
+                />
+              </Grid>
+            </Grid>
+          </Box>
+
+          {/* Assignment Information */}
+          <Box sx={{
+            p: { xs: 2, md: 3 },
+            bgcolor: 'green.50',
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'green.200'
+          }}>
+            <Box display="flex" alignItems="center" mb={2}>
+              <People sx={{ mr: 1, color: 'green.main' }} />
+              <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'green.main' }}>
+                Assignment
+              </Typography>
+            </Box>
+            
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Manager</InputLabel>
+                  <Select
+                    value={form.managerId}
+                    label="Manager"
+                    onChange={(e) => setForm({ ...form, managerId: e.target.value })}
+                    disabled={dialogMode === 'view'}
+                  >
+                    <MenuItem value="">No Manager</MenuItem>
+                    {users.map(user => (
+                      <MenuItem key={user.id} value={user.id}>
+                        {user.firstName} {user.lastName}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Tenant</InputLabel>
+                  <Select
+                    value={form.tenantId}
+                    label="Tenant"
+                    onChange={(e) => setForm({ ...form, tenantId: e.target.value })}
+                    disabled={dialogMode === 'view'}
+                  >
+                    <MenuItem value="">No Tenant</MenuItem>
+                    {tenants.map(tenant => (
+                      <MenuItem key={tenant.id} value={tenant.id}>
+                        {tenant.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ p: { xs: 2, md: 3 } }}>
+          <Button onClick={handleClose} disabled={saveLoading}>
+            Cancel
+          </Button>
+          {dialogMode !== 'view' && (
+            <Button
+              onClick={handleSave}
+              variant="contained"
+              disabled={saveLoading}
+              startIcon={saveLoading ? <CircularProgress size={20} /> : null}
+            >
+              {saveLoading ? 'Saving...' : dialogMode === 'add' ? 'Add Business Unit' : 'Update Business Unit'}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

@@ -12,7 +12,7 @@ async function main() {
       name: 'FuelX HQ',
       type: 'HQ',
       status: 'active',
-      notes: 'Main headquarters for FuelX operations'
+      description: 'Main headquarters for FuelX operations'
     },
   });
 

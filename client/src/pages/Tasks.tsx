@@ -36,6 +36,7 @@ const Tasks: React.FC = () => {
   const [sortBy, setSortBy] = useState<'title' | 'dueDate' | 'status' | 'priority'>('title');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [searchParams, setSearchParams] = useSearchParams();
+  const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
   
   // Get filters from URL params
   const statusFilter = searchParams.get('status') || 'all';
@@ -105,6 +106,34 @@ const Tasks: React.FC = () => {
   const handleClose = () => {
     setOpen(false);
     setSelectedTask(null);
+    setFormErrors({});
+  };
+
+  const validateForm = () => {
+    const errors: {[key: string]: string} = {};
+
+    if (!form.title.trim()) {
+      errors.title = 'Task title is required';
+    }
+
+    if (!form.type) {
+      errors.type = 'Task type is required';
+    }
+
+    if (!form.priority) {
+      errors.priority = 'Priority is required';
+    }
+
+    if (!form.assignedTo) {
+      errors.assignedTo = 'Assigned user is required';
+    }
+
+    if (!form.dueDate) {
+      errors.dueDate = 'Due date is required';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -541,11 +570,12 @@ const Tasks: React.FC = () => {
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="Task Title"
+                  label="Task Title *"
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  required
                   disabled={dialogMode === 'view'}
+                  error={!!formErrors.title}
+                  helperText={formErrors.title}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -562,12 +592,14 @@ const Tasks: React.FC = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Due Date"
+                  label="Due Date *"
                   type="date"
                   value={form.dueDate}
                   onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-                  InputLabelProps={{ shrink: true }}
                   disabled={dialogMode === 'view'}
+                  error={!!formErrors.dueDate}
+                  helperText={formErrors.dueDate}
+                  InputLabelProps={{ shrink: true }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -588,20 +620,25 @@ const Tasks: React.FC = () => {
                 </FormControl>
               </Grid>
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Priority</InputLabel>
+                <FormControl fullWidth error={!!formErrors.priority}>
+                  <InputLabel>Priority *</InputLabel>
                   <Select
                     value={form.priority}
-                    label="Priority"
+                    label="Priority *"
                     onChange={(e) => setForm({ ...form, priority: e.target.value })}
                     disabled={dialogMode === 'view'}
                   >
                     {priorityOptions.map(priority => (
                       <MenuItem key={priority} value={priority}>
-                        {priority.charAt(0).toUpperCase() + priority.slice(1)}
+                        {priority}
                       </MenuItem>
                     ))}
                   </Select>
+                  {formErrors.priority && (
+                    <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
+                      {formErrors.priority}
+                    </Typography>
+                  )}
                 </FormControl>
               </Grid>
               <Grid item xs={12} sm={6}>

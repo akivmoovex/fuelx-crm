@@ -92,6 +92,8 @@ const Accounts: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [industrySearch, setIndustrySearch] = useState('');
   const [showIndustryDropdown, setShowIndustryDropdown] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
   
   // Get filters from URL params
   const statusFilter = searchParams.get('status') || 'all';
@@ -155,6 +157,7 @@ const Accounts: React.FC = () => {
   const handleOpen = (mode: 'view' | 'edit' | 'add', account?: Account) => {
     setDialogMode(mode);
     setSelectedAccount(account || null);
+    setFormErrors({});
     
     if (mode === 'add') {
       setForm({
@@ -201,113 +204,125 @@ const Accounts: React.FC = () => {
         notes: account.notes || ''
       });
     }
-    
+
     setOpen(true);
   };
 
   const handleClose = () => {
     setOpen(false);
     setSelectedAccount(null);
+    setSaveLoading(false);
+    setFormErrors({});
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const validateForm = () => {
+    const errors: {[key: string]: string} = {};
+
+    // Required fields validation
+    if (!form.name.trim()) {
+      errors.name = 'Account name is required';
+    }
+
+    if (!form.email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      errors.email = 'Please enter a valid email address';
+    }
+
+    if (!form.phone.trim()) {
+      errors.phone = 'Phone number is required';
+    }
+
+    if (!form.address.trim()) {
+      errors.address = 'Address is required';
+    }
+
+    if (!form.city.trim()) {
+      errors.city = 'City is required';
+    }
+
+    if (!form.state.trim()) {
+      errors.state = 'State/Province is required';
+    }
+
+    if (!form.country.trim()) {
+      errors.country = 'Country is required';
+    }
+
+    if (!form.businessUnitId) {
+      errors.businessUnitId = 'Business unit is required';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Fixed save function
+  const handleSave = async () => {
+    // Validate form before saving
+    if (!validateForm()) {
+      setSnackbar({
+        open: true,
+        message: 'Please fill in all required fields correctly.',
+        severity: 'error'
+      });
+      return;
+    }
 
     try {
-      // Prepare form data - convert empty strings to null for optional fields
-      const formData = {
-        ...form,
-        businessUnitId: form.businessUnitId || null,
-        accountManagerId: form.accountManagerId || null,
-        registrationNumber: form.registrationNumber || null,
-        taxNumber: form.taxNumber || null,
-        website: form.website || null,
-        notes: form.notes || null
-      };
+      setSaveLoading(true);
+      console.log('Saving account:', form); // Debug log
 
       if (dialogMode === 'edit' && selectedAccount) {
-        await apiClient.put(`/api/accounts/${selectedAccount.id}`, formData);
+        console.log('Updating account:', selectedAccount.id);
+        await apiClient.put(`/api/accounts/${selectedAccount.id}`, form);
         setSnackbar({ open: true, message: 'Account updated successfully!', severity: 'success' });
       } else if (dialogMode === 'add') {
-        await apiClient.post('/api/accounts', formData);
+        console.log('Creating new account');
+        await apiClient.post('/api/accounts', form);
         setSnackbar({ open: true, message: 'Account added successfully!', severity: 'success' });
       }
-      
+
       fetchAccounts();
       handleClose();
     } catch (error) {
-      console.error('Error submitting account:', error);
-      setSnackbar({ 
-        open: true, 
-        message: error instanceof Error ? error.message : 'An error occurred while saving the account.', 
-        severity: 'error' 
+      console.error('Error saving account:', error);
+      setSnackbar({
+        open: true,
+        message: error instanceof Error ? error.message : 'An error occurred while saving the account.',
+        severity: 'error'
       });
+    } finally {
+      setSaveLoading(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!window.confirm('Are you sure you want to delete this account?')) return;
-    
+
     try {
       await apiClient.delete(`/api/accounts/${id}`);
       setSnackbar({ open: true, message: 'Account deleted successfully!', severity: 'success' });
-      
-      // Force refresh the accounts list
-      await fetchAccounts();
-      
+      fetchAccounts();
     } catch (error) {
       console.error('Error deleting account:', error);
-      setSnackbar({ 
-        open: true, 
-        message: error instanceof Error ? error.message : 'Failed to delete account.', 
-        severity: 'error' 
+      setSnackbar({
+        open: true,
+        message: error instanceof Error ? error.message : 'Failed to delete account.',
+        severity: 'error'
       });
     }
   };
 
-  // Filtering and sorting
-  const filteredAccounts = accounts.filter(account => {
-    const searchLower = search.toLowerCase();
-    const nameMatch = account.name.toLowerCase().includes(searchLower);
-    const emailMatch = (account.email || '').toLowerCase().includes(searchLower);
-    const phoneMatch = (account.phone || '').toLowerCase().includes(searchLower);
-    const industryMatch = (account.industry || '').toLowerCase().includes(searchLower);
-    
-    // Apply filters
-    const statusMatch = statusFilter === 'all' || account.status === statusFilter;
-    const typeMatch = typeFilter === 'all' || account.type === typeFilter;
-    
-    return (nameMatch || emailMatch || phoneMatch || industryMatch) && statusMatch && typeMatch;
-  });
-
-  const sortedAccounts = [...filteredAccounts].sort((a, b) => {
-    let aValue = a[sortBy] || '';
-    let bValue = b[sortBy] || '';
-    
-    if (sortBy === 'createdAt') {
-      aValue = aValue || '';
-      bValue = bValue || '';
-      return sortDirection === 'asc'
-        ? new Date(aValue).getTime() - new Date(bValue).getTime()
-        : new Date(bValue).getTime() - new Date(aValue).getTime();
-    }
-    
-    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-    return 0;
-  });
-
-  // Sorting handler
   const handleSort = (column: typeof sortBy) => {
     if (sortBy === column) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       setSortBy(column);
-      setSortDirection(column === 'createdAt' ? 'desc' : 'asc');
+      setSortDirection('asc');
     }
   };
 
-  // Get status color
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active': return 'success';
@@ -318,7 +333,6 @@ const Accounts: React.FC = () => {
     }
   };
 
-  // Get type color
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'company': return 'primary';
@@ -329,10 +343,42 @@ const Accounts: React.FC = () => {
     }
   };
 
-  // Filter industry options based on search
+  // Filter industries based on search
   const filteredIndustries = industryOptions.filter(industry =>
     industry.toLowerCase().includes(industrySearch.toLowerCase())
   );
+
+  // Filter and sort accounts
+  const filteredAccounts = accounts.filter(account => {
+    const searchLower = search.toLowerCase();
+    const nameMatch = account.name.toLowerCase().includes(searchLower);
+    const emailMatch = (account.email || '').toLowerCase().includes(searchLower);
+    const phoneMatch = (account.phone || '').toLowerCase().includes(searchLower);
+    const industryMatch = (account.industry || '').toLowerCase().includes(searchLower);
+
+    return nameMatch || emailMatch || phoneMatch || industryMatch;
+  });
+
+  const sortedAccounts = filteredAccounts.filter(account => {
+    const statusMatch = statusFilter === 'all' || account.status === statusFilter;
+    const typeMatch = typeFilter === 'all' || account.type === typeFilter;
+    return statusMatch && typeMatch;
+  }).sort((a, b) => {
+    let aValue = a[sortBy] || '';
+    let bValue = b[sortBy] || '';
+
+    if (sortBy === 'createdAt') {
+      aValue = aValue || '';
+      bValue = bValue || '';
+      return sortDirection === 'asc'
+        ? new Date(aValue).getTime() - new Date(bValue).getTime()
+        : new Date(bValue).getTime() - new Date(aValue).getTime();
+    }
+
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
 
   if (loading) {
     return (
@@ -461,7 +507,7 @@ const Accounts: React.FC = () => {
             <CardContent sx={{ p: { xs: 2, md: 3 }, textAlign: 'center' }}>
               <AttachMoney sx={{ fontSize: { xs: 32, md: 40 }, mb: 1 }} />
               <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                ${accounts.reduce((sum, a) => sum + (a.creditLimit || 0), 0).toLocaleString()}
+                ZMW {accounts.reduce((sum, a) => sum + (a.creditLimit || 0), 0).toLocaleString()}
               </Typography>
               <Typography variant="body2" sx={{ opacity: 0.9 }}>
                 Total Credit Limit
@@ -585,17 +631,13 @@ const Accounts: React.FC = () => {
                         <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
                           {account.name}
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {account.registrationNumber && `Reg: ${account.registrationNumber}`}
-                        </Typography>
+                        <Chip
+                          label={account.type}
+                          size="small"
+                          color={getTypeColor(account.type) as any}
+                          sx={{ fontSize: '0.7rem' }}
+                        />
                       </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={account.type}
-                        color={getTypeColor(account.type) as any}
-                        size="small"
-                      />
                     </TableCell>
                     <TableCell>
                       <Box>
@@ -670,630 +712,601 @@ const Accounts: React.FC = () => {
 
       {/* Mobile Cards */}
       <Box sx={{ display: { xs: 'block', md: 'none' } }}>
-        {sortedAccounts.map((account) => (
-          <Card
-            key={account.id}
-            sx={{
-              mb: 2,
-              cursor: 'pointer',
-              borderRadius: 3,
-              boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-              background: 'rgba(255,255,255,0.95)',
-              backdropFilter: 'blur(10px)',
-              '&:hover': {
-                boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
-                transform: 'translateY(-2px)',
-                transition: 'all 0.3s ease'
-              }
-            }}
-            onClick={() => handleOpen('view', account)}
-          >
-            <CardContent sx={{ p: 0 }}>
-              {/* Header with Status Badge */}
-              <Box sx={{
-                p: 2.5,
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                color: 'white',
-                borderRadius: '12px 12px 0 0'
+        <Grid container spacing={2}>
+          {sortedAccounts.map((account) => (
+            <Grid item xs={12} key={account.id}>
+              <Card sx={{ 
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: 4
+                }
               }}>
-                <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                  <Box flex={1} minWidth={0}>
-                    <Typography
-                      variant="h6"
-                      sx={{
-                        fontWeight: 'bold',
-                        mb: 0.5,
-                        fontSize: '1.1rem',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}
-                    >
-                      {account.name}
-                    </Typography>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Business sx={{ fontSize: 16, opacity: 0.9 }} />
+                <CardContent sx={{ p: 2 }}>
+                  <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                    <Box flex={1} minWidth={0}>
                       <Typography
-                        variant="body2"
+                        variant="h6"
                         sx={{
-                          opacity: 0.9,
+                          fontWeight: 'bold',
+                          mb: 0.5,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap'
                         }}
                       >
-                        {account.type}
+                        {account.name}
                       </Typography>
+                      <Chip
+                        label={account.type}
+                        size="small"
+                        color={getTypeColor(account.type) as any}
+                        sx={{ fontSize: '0.7rem', mr: 1 }}
+                      />
+                      <Chip
+                        label={account.status}
+                        size="small"
+                        color={getStatusColor(account.status) as any}
+                        sx={{ fontSize: '0.7rem' }}
+                      />
                     </Box>
                   </Box>
-                  <Chip
-                    label={account.status.toUpperCase()}
-                    size="small"
-                    sx={{
-                      ml: 1,
-                      fontWeight: 'bold',
-                      fontSize: '0.7rem',
-                      height: 24,
-                      backgroundColor: 'rgba(255,255,255,0.2)',
-                      color: 'white'
-                    }}
-                  />
-                </Box>
-              </Box>
 
-              {/* Content Section */}
-              <Box sx={{ p: 2.5 }}>
-                {/* Key Information Cards */}
-                <Grid container spacing={1.5} mb={2}>
-                  <Grid item xs={6}>
-                    <Box sx={{
-                      p: 1.5,
-                      bgcolor: 'grey.50',
-                      borderRadius: 2,
-                      textAlign: 'center'
-                    }}>
-                      <Typography variant="caption" color="textSecondary" display="block" sx={{ mb: 0.5, fontWeight: 600 }}>
-                        Industry
-                      </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                        {account.industry || 'N/A'}
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Box sx={{
-                      p: 1.5,
-                      bgcolor: 'grey.50',
-                      borderRadius: 2,
-                      textAlign: 'center'
-                    }}>
-                      <Typography variant="caption" color="textSecondary" display="block" sx={{ mb: 0.5, fontWeight: 600 }}>
-                        Credit Limit
-                      </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                        ${(account.creditLimit || 0).toLocaleString()}
-                      </Typography>
-                    </Box>
-                  </Grid>
-                </Grid>
-
-                {/* Contact Information */}
-                {(account.email || account.phone) && (
-                  <Box
-                    sx={{
-                      mb: 2,
-                      p: 1.5,
-                      bgcolor: 'primary.50',
-                      borderRadius: 2,
-                      border: '1px solid',
-                      borderColor: 'primary.200'
-                    }}
-                  >
-                    <Typography variant="caption" color="primary.main" display="block" sx={{ mb: 1, fontWeight: 600 }}>
-                      Contact Information
-                    </Typography>
+                  <Box sx={{ mb: 2 }}>
                     {account.email && (
-                      <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-                        <Email sx={{ fontSize: 16, color: 'primary.main' }} />
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          {account.email}
-                        </Typography>
-                      </Box>
+                      <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
+                        <Email sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} />
+                        {account.email}
+                      </Typography>
                     )}
                     {account.phone && (
-                      <Box display="flex" alignItems="center" gap={1}>
-                        <Phone sx={{ fontSize: 16, color: 'primary.main' }} />
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          {account.phone}
-                        </Typography>
-                      </Box>
-                    )}
-                  </Box>
-                )}
-
-                {/* Registration Info */}
-                {account.registrationNumber && (
-                  <Box
-                    sx={{
-                      mb: 2,
-                      p: 1.5,
-                      bgcolor: 'secondary.50',
-                      borderRadius: 2,
-                      border: '1px solid',
-                      borderColor: 'secondary.200'
-                    }}
-                  >
-                    <Typography variant="caption" color="secondary.main" display="block" sx={{ mb: 1, fontWeight: 600 }}>
-                      Registration Details
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      Reg: {account.registrationNumber}
-                    </Typography>
-                    {account.taxNumber && (
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        Tax: {account.taxNumber}
+                      <Typography variant="body2" color="textSecondary">
+                        <Phone sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} />
+                        {account.phone}
                       </Typography>
                     )}
                   </Box>
-                )}
 
-                {/* View Details Button - Only View Action Available on Mobile */}
-                <Button
-                  variant="contained"
-                  fullWidth
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleOpen('view', account);
-                  }}
-                  startIcon={<Visibility />}
-                  sx={{
-                    borderRadius: 2,
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    '&:hover': {
-                      background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)'
-                    }
-                  }}
-                >
-                  View Details
-                </Button>
-              </Box>
-            </CardContent>
-          </Card>
-        ))}
+                  <Box sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    mb: 2,
+                    p: 2,
+                    bgcolor: 'grey.50',
+                    borderRadius: 2
+                  }}>
+                    <Box sx={{ textAlign: 'center', flex: 1 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                        {account.industry || 'N/A'}
+                      </Typography>
+                      <Typography variant="caption" color="textSecondary">
+                        Industry
+                      </Typography>
+                    </Box>
+                    <Box sx={{ 
+                      width: 1, 
+                      bgcolor: 'grey.300', 
+                      mx: 1 
+                    }} />
+                    <Box sx={{ textAlign: 'center', flex: 1 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'secondary.main' }}>
+                        ZMW {(account.creditLimit || 0).toLocaleString()}
+                      </Typography>
+                      <Typography variant="caption" color="textSecondary">
+                        Credit Limit
+                      </Typography>
+                    </Box>
+                  </Box>
 
-        {/* Empty State */}
-        {sortedAccounts.length === 0 && (
-          <Box
-            sx={{
-              textAlign: 'center',
-              py: 8,
-              px: 2,
-              bgcolor: 'rgba(255,255,255,0.8)',
-              borderRadius: 3,
-              border: '2px dashed',
-              borderColor: 'grey.300'
-            }}
-          >
-            <Business sx={{ fontSize: 48, color: 'grey.400', mb: 2 }} />
-            <Typography variant="h6" color="textSecondary" sx={{ mb: 1 }}>
-              No Accounts Found
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              {search || statusFilter !== 'all' || typeFilter !== 'all'
-                ? 'Try adjusting your search or filters'
-                : 'No accounts are currently available'
-              }
-            </Typography>
-          </Box>
-        )}
+                  <Box display="flex" gap={1} justifyContent="center">
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => handleOpen('view', account)}
+                      startIcon={<Visibility />}
+                      sx={{ flex: 1 }}
+                    >
+                      View
+                    </Button>
+                    {(user?.role === 'SYSTEM_ADMIN' || user?.role === 'SALES_MANAGER') && (
+                      <>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => handleOpen('edit', account)}
+                          startIcon={<Edit />}
+                          sx={{ flex: 1 }}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          onClick={() => handleDelete(account.id)}
+                          startIcon={<Delete />}
+                          sx={{ flex: 1 }}
+                        >
+                          Delete
+                        </Button>
+                      </>
+                    )}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
       </Box>
 
       {/* Improved Account Dialog */}
-      <Dialog 
-        open={open} 
-        onClose={handleClose} 
-        maxWidth="xl" 
-        fullWidth
-        PaperProps={{
-          sx: {
-            minHeight: '80vh',
-            maxHeight: '90vh'
-          }
-        }}
-      >
-        <DialogTitle sx={{ 
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+      <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+        <DialogTitle sx={{
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
           color: 'white',
-          pb: 2
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          p: { xs: 2, md: 3 }
         }}>
-          <Box display="flex" alignItems="center" justifyContent="space-between">
-            <Box>
-              <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                {dialogMode === 'add' && 'Add New Account'}
-                {dialogMode === 'edit' && 'Edit Account'}
-                {dialogMode === 'view' && 'Account Details'}
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9, mt: 0.5 }}>
-                {dialogMode === 'add' && 'Create a new business account'}
-                {dialogMode === 'edit' && 'Update account information'}
-                {dialogMode === 'view' && 'View account details'}
-              </Typography>
-            </Box>
-            <IconButton onClick={handleClose} sx={{ color: 'white' }}>
-              <Close />
-            </IconButton>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+              {dialogMode === 'add' && 'Add New Account'}
+              {dialogMode === 'edit' && 'Edit Account'}
+              {dialogMode === 'view' && 'Account Details'}
+            </Typography>
+            {dialogMode === 'view' && (
+              <Chip
+                label={form.status.toUpperCase()}
+                size="small"
+                sx={{
+                  backgroundColor: getStatusColor(form.status) === 'success' ? '#4caf50' : 
+                                getStatusColor(form.status) === 'error' ? '#f44336' : '#ff9800',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  fontSize: '0.7rem'
+                }}
+              />
+            )}
           </Box>
+          <IconButton
+            onClick={handleClose}
+            sx={{ color: 'white' }}
+          >
+            <Close />
+          </IconButton>
         </DialogTitle>
-        
-        <DialogContent sx={{ p: 3 }}>
-          <Box component="form" onSubmit={handleSubmit}>
-            <Grid container spacing={3}>
-              {/* Section 1: Basic Information */}
-              <Grid item xs={12}>
-                <Typography variant="h6" sx={{ mb: 2, color: 'primary.main', fontWeight: 'bold' }}>
+
+        <DialogContent sx={{ p: { xs: 2, md: 3 } }}>
+          <Box sx={{ maxHeight: { xs: '60vh', md: '50vh' }, overflowY: 'auto' }}>
+            {/* Basic Information Section */}
+            <Box sx={{
+              mb: 3,
+              p: { xs: 2, md: 3 },
+              bgcolor: 'grey.50',
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'grey.200'
+            }}>
+              <Box display="flex" alignItems="center" mb={2}>
+                <Business sx={{ mr: 1, color: 'primary.main' }} />
+                <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
                   Basic Information
                 </Typography>
-              </Grid>
+              </Box>
               
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Account Name"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  disabled={dialogMode === 'view'}
-                  required
-                  variant="outlined"
-                  sx={{ mb: 2 }}
-                />
-              </Grid>
-              
-              <Grid item xs={12} md={3}>
-                <FormControl fullWidth>
-                  <InputLabel>Account Type</InputLabel>
-                  <Select
-                    value={form.type}
-                    onChange={(e) => setForm({ ...form, type: e.target.value })}
-                    label="Account Type"
-                    disabled={dialogMode === 'view'}
-                    variant="outlined"
-                  >
-                    {typeOptions.map(type => (
-                      <MenuItem key={type} value={type}>
-                        {type.charAt(0).toUpperCase() + type.slice(1)}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              
-              <Grid item xs={12} md={3}>
-                <FormControl fullWidth>
-                  <InputLabel>Status</InputLabel>
-                  <Select
-                    value={form.status}
-                    onChange={(e) => setForm({ ...form, status: e.target.value })}
-                    label="Status"
-                    disabled={dialogMode === 'view'}
-                    variant="outlined"
-                  >
-                    {statusOptions.map(status => (
-                      <MenuItem key={status} value={status}>
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              {/* Section 2: Business Unit Assignment */}
-              <Grid item xs={12}>
-                <Typography variant="h6" sx={{ mb: 2, color: 'primary.main', fontWeight: 'bold', mt: 2 }}>
-                  Business Unit Assignment
-                </Typography>
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Business Unit</InputLabel>
-                  <Select
-                    value={form.businessUnitId}
-                    onChange={(e) => setForm({ ...form, businessUnitId: e.target.value })}
-                    label="Business Unit"
-                    disabled={dialogMode === 'view'}
-                    variant="outlined"
-                    required
-                  >
-                    <MenuItem value="">
-                      <em>Select Business Unit</em>
-                    </MenuItem>
-                    {businessUnits.map(bu => (
-                      <MenuItem key={bu.id} value={bu.id}>
-                        <Box>
-                          <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-                            {bu.name}
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            {bu.location} • {bu.city}, {bu.state}
-                          </Typography>
-                        </Box>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Account Manager</InputLabel>
-                  <Select
-                    value={form.accountManagerId}
-                    onChange={(e) => setForm({ ...form, accountManagerId: e.target.value })}
-                    label="Account Manager"
-                    disabled={dialogMode === 'view'}
-                    variant="outlined"
-                  >
-                    <MenuItem value="">
-                      <em>Select Account Manager</em>
-                    </MenuItem>
-                    {users.filter(u => ['SALES_REP', 'SALES_MANAGER'].includes(u.role)).map(user => (
-                      <MenuItem key={user.id} value={user.id}>
-                        <Box>
-                          <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-                            {user.firstName} {user.lastName}
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            {user.role} • {user.email}
-                          </Typography>
-                        </Box>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              {/* Section 3: Contact Information */}
-              <Grid item xs={12}>
-                <Typography variant="h6" sx={{ mb: 2, color: 'primary.main', fontWeight: 'bold', mt: 2 }}>
-                  Contact Information
-                </Typography>
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Email"
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  disabled={dialogMode === 'view'}
-                  required
-                  variant="outlined"
-                />
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Phone"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  disabled={dialogMode === 'view'}
-                  required
-                  variant="outlined"
-                />
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Website"
-                  value={form.website}
-                  onChange={(e) => setForm({ ...form, website: e.target.value })}
-                  disabled={dialogMode === 'view'}
-                  variant="outlined"
-                />
-              </Grid>
-
-              {/* Section 4: Address Information */}
-              <Grid item xs={12}>
-                <Typography variant="h6" sx={{ mb: 2, color: 'primary.main', fontWeight: 'bold', mt: 2 }}>
-                  Address Information
-                </Typography>
-              </Grid>
-              
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Address"
-                  value={form.address}
-                  onChange={(e) => setForm({ ...form, address: e.target.value })}
-                  disabled={dialogMode === 'view'}
-                  required
-                  variant="outlined"
-                />
-              </Grid>
-              
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="City"
-                  value={form.city}
-                  onChange={(e) => setForm({ ...form, city: e.target.value })}
-                  disabled={dialogMode === 'view'}
-                  required
-                  variant="outlined"
-                />
-              </Grid>
-              
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="State/Province"
-                  value={form.state}
-                  onChange={(e) => setForm({ ...form, state: e.target.value })}
-                  disabled={dialogMode === 'view'}
-                  required
-                  variant="outlined"
-                />
-              </Grid>
-              
-              <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="Postal Code"
-                  value={form.postalCode}
-                  onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
-                  disabled={dialogMode === 'view'}
-                  required
-                  variant="outlined"
-                />
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Country"
-                  value={form.country}
-                  onChange={(e) => setForm({ ...form, country: e.target.value })}
-                  disabled={dialogMode === 'view'}
-                  required
-                  variant="outlined"
-                />
-              </Grid>
-
-              {/* Section 5: Business Information */}
-              <Grid item xs={12}>
-                <Typography variant="h6" sx={{ mb: 2, color: 'primary.main', fontWeight: 'bold', mt: 2 }}>
-                  Business Information
-                </Typography>
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Registration Number"
-                  value={form.registrationNumber}
-                  onChange={(e) => setForm({ ...form, registrationNumber: e.target.value })}
-                  disabled={dialogMode === 'view'}
-                  variant="outlined"
-                />
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Tax Number"
-                  value={form.taxNumber}
-                  onChange={(e) => setForm({ ...form, taxNumber: e.target.value })}
-                  disabled={dialogMode === 'view'}
-                  variant="outlined"
-                />
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Industry</InputLabel>
-                  <Select
-                    value={form.industry}
-                    onChange={(e) => setForm({ ...form, industry: e.target.value })}
-                    label="Industry"
-                    disabled={dialogMode === 'view'}
-                    variant="outlined"
-                    onOpen={() => setShowIndustryDropdown(true)}
-                    onClose={() => setShowIndustryDropdown(false)}
-                  >
-                    <MenuItem value="">
-                      <em>Select Industry</em>
-                    </MenuItem>
-                    {filteredIndustries.map(industry => (
-                      <MenuItem key={industry} value={industry}>
-                        {industry}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                {showIndustryDropdown && (
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
-                    placeholder="Search industry..."
-                    value={industrySearch}
-                    onChange={(e) => setIndustrySearch(e.target.value)}
-                    sx={{ mt: 1 }}
-                    size="small"
-                    variant="outlined"
-                  />
-                )}
-              </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Payment Terms</InputLabel>
-                  <Select
-                    value={form.paymentTerms}
-                    onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })}
-                    label="Payment Terms"
+                    label="Account Name *"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
                     disabled={dialogMode === 'view'}
-                    variant="outlined"
-                  >
-                    {paymentTermsOptions.map(term => (
-                      <MenuItem key={term} value={term}>
-                        {term}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                    error={!!formErrors.name}
+                    helperText={formErrors.name}
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth>
+                    <InputLabel>Account Type</InputLabel>
+                    <Select
+                      value={form.type}
+                      onChange={(e) => setForm({ ...form, type: e.target.value })}
+                      label="Account Type"
+                      disabled={dialogMode === 'view'}
+                    >
+                      {typeOptions.map(type => (
+                        <MenuItem key={type} value={type}>
+                          {type.charAt(0).toUpperCase() + type.slice(1)}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth>
+                    <InputLabel>Status</InputLabel>
+                    <Select
+                      value={form.status}
+                      onChange={(e) => setForm({ ...form, status: e.target.value })}
+                      label="Status"
+                      disabled={dialogMode === 'view'}
+                    >
+                      {statusOptions.map(status => (
+                        <MenuItem key={status} value={status}>
+                          {status.charAt(0).toUpperCase() + status.slice(1)}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
               </Grid>
-              
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Credit Limit"
-                  type="number"
-                  value={form.creditLimit}
-                  onChange={(e) => setForm({ ...form, creditLimit: parseFloat(e.target.value) || 0 })}
-                  disabled={dialogMode === 'view'}
-                  variant="outlined"
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                  }}
-                />
-              </Grid>
+            </Box>
 
-              {/* Section 6: Additional Information */}
-              <Grid item xs={12}>
-                <Typography variant="h6" sx={{ mb: 2, color: 'primary.main', fontWeight: 'bold', mt: 2 }}>
+            {/* Assignment Section */}
+            <Box sx={{
+              mb: 3,
+              p: { xs: 2, md: 3 },
+              bgcolor: 'blue.50',
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'blue.200'
+            }}>
+              <Box display="flex" alignItems="center" mb={2}>
+                <People sx={{ mr: 1, color: 'blue.main' }} />
+                <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'blue.main' }}>
+                  Assignment
+                </Typography>
+              </Box>
+              
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth error={!!formErrors.businessUnitId}>
+                    <InputLabel>Business Unit *</InputLabel>
+                    <Select
+                      value={form.businessUnitId}
+                      onChange={(e) => setForm({ ...form, businessUnitId: e.target.value })}
+                      label="Business Unit *"
+                      disabled={dialogMode === 'view'}
+                    >
+                      <MenuItem value="">Select Business Unit</MenuItem>
+                      {businessUnits.map(bu => (
+                        <MenuItem key={bu.id} value={bu.id}>
+                          {bu.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  {formErrors.businessUnitId && (
+                    <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
+                      {formErrors.businessUnitId}
+                    </Typography>
+                  )}
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Account Manager</InputLabel>
+                    <Select
+                      value={form.accountManagerId}
+                      onChange={(e) => setForm({ ...form, accountManagerId: e.target.value })}
+                      label="Account Manager"
+                      disabled={dialogMode === 'view'}
+                    >
+                      <MenuItem value="">Select Account Manager</MenuItem>
+                      {users.filter(u => ['SALES_REP', 'SALES_MANAGER'].includes(u.role)).map(user => (
+                        <MenuItem key={user.id} value={user.id}>
+                          {user.firstName} {user.lastName}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+            </Box>
+
+            {/* Contact Information Section */}
+            <Box sx={{
+              mb: 3,
+              p: { xs: 2, md: 3 },
+              bgcolor: 'green.50',
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'green.200'
+            }}>
+              <Box display="flex" alignItems="center" mb={2}>
+                <Email sx={{ mr: 1, color: 'green.main' }} />
+                <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'green.main' }}>
+                  Contact Information
+                </Typography>
+              </Box>
+              
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Email *"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    disabled={dialogMode === 'view'}
+                    error={!!formErrors.email}
+                    helperText={formErrors.email}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Phone *"
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    disabled={dialogMode === 'view'}
+                    error={!!formErrors.phone}
+                    helperText={formErrors.phone}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Website"
+                    value={form.website}
+                    onChange={(e) => setForm({ ...form, website: e.target.value })}
+                    disabled={dialogMode === 'view'}
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+
+            {/* Address Information Section */}
+            <Box sx={{
+              mb: 3,
+              p: { xs: 2, md: 3 },
+              bgcolor: 'orange.50',
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'orange.200'
+            }}>
+              <Box display="flex" alignItems="center" mb={2}>
+                <LocationOn sx={{ mr: 1, color: 'orange.main' }} />
+                <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'orange.main' }}>
+                  Address Information
+                </Typography>
+              </Box>
+              
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Address *"
+                    value={form.address}
+                    onChange={(e) => setForm({ ...form, address: e.target.value })}
+                    disabled={dialogMode === 'view'}
+                    multiline
+                    rows={2}
+                    error={!!formErrors.address}
+                    helperText={formErrors.address}
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="City *"
+                    value={form.city}
+                    onChange={(e) => setForm({ ...form, city: e.target.value })}
+                    disabled={dialogMode === 'view'}
+                    error={!!formErrors.city}
+                    helperText={formErrors.city}
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="State/Province *"
+                    value={form.state}
+                    onChange={(e) => setForm({ ...form, state: e.target.value })}
+                    disabled={dialogMode === 'view'}
+                    error={!!formErrors.state}
+                    helperText={formErrors.state}
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Postal Code"
+                    value={form.postalCode}
+                    onChange={(e) => setForm({ ...form, postalCode: e.target.value })}
+                    disabled={dialogMode === 'view'}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Country *"
+                    value={form.country}
+                    onChange={(e) => setForm({ ...form, country: e.target.value })}
+                    disabled={dialogMode === 'view'}
+                    error={!!formErrors.country}
+                    helperText={formErrors.country}
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+
+            {/* Business Information Section */}
+            <Box sx={{
+              mb: 3,
+              p: { xs: 2, md: 3 },
+              bgcolor: 'purple.50',
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'purple.200'
+            }}>
+              <Box display="flex" alignItems="center" mb={2}>
+                <Info sx={{ mr: 1, color: 'purple.main' }} />
+                <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'purple.main' }}>
+                  Business Information
+                </Typography>
+              </Box>
+              
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Registration Number"
+                    value={form.registrationNumber}
+                    onChange={(e) => setForm({ ...form, registrationNumber: e.target.value })}
+                    disabled={dialogMode === 'view'}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Tax Number"
+                    value={form.taxNumber}
+                    onChange={(e) => setForm({ ...form, taxNumber: e.target.value })}
+                    disabled={dialogMode === 'view'}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Industry</InputLabel>
+                    <Select
+                      value={form.industry}
+                      onChange={(e) => setForm({ ...form, industry: e.target.value })}
+                      label="Industry"
+                      disabled={dialogMode === 'view'}
+                      onOpen={() => setShowIndustryDropdown(true)}
+                      onClose={() => setShowIndustryDropdown(false)}
+                    >
+                      <MenuItem value="">Select Industry</MenuItem>
+                      {filteredIndustries.map(industry => (
+                        <MenuItem key={industry} value={industry}>
+                          {industry}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  {showIndustryDropdown && (
+                    <TextField
+                      fullWidth
+                      placeholder="Search industry..."
+                      value={industrySearch}
+                      onChange={(e) => setIndustrySearch(e.target.value)}
+                      sx={{ mt: 1 }}
+                      size="small"
+                      variant="outlined"
+                    />
+                  )}
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Payment Terms</InputLabel>
+                    <Select
+                      value={form.paymentTerms}
+                      onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })}
+                      label="Payment Terms"
+                      disabled={dialogMode === 'view'}
+                    >
+                      {paymentTermsOptions.map(term => (
+                        <MenuItem key={term} value={term}>
+                          {term}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Credit Limit"
+                    type="number"
+                    value={form.creditLimit}
+                    onChange={(e) => setForm({ ...form, creditLimit: parseFloat(e.target.value) || 0 })}
+                    disabled={dialogMode === 'view'}
+                    InputProps={{
+                      startAdornment: <InputAdornment position="start">ZMW</InputAdornment>,
+                    }}
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+
+            {/* Additional Information Section */}
+            <Box sx={{
+              p: { xs: 2, md: 3 },
+              bgcolor: 'grey.50',
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'grey.200'
+            }}>
+              <Box display="flex" alignItems="center" mb={2}>
+                <Assignment sx={{ mr: 1, color: 'grey.main' }} />
+                <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'grey.main' }}>
                   Additional Information
                 </Typography>
-              </Grid>
+              </Box>
               
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Notes"
-                  multiline
-                  rows={4}
-                  value={form.notes}
-                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                  disabled={dialogMode === 'view'}
-                  variant="outlined"
-                  placeholder="Enter any additional notes about this account..."
-                />
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Notes"
+                    multiline
+                    rows={3}
+                    value={form.notes}
+                    onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                    disabled={dialogMode === 'view'}
+                    placeholder="Enter any additional notes about this account..."
+                  />
+                </Grid>
               </Grid>
-            </Grid>
+            </Box>
           </Box>
         </DialogContent>
-        
-        <DialogActions sx={{ p: 3, pt: 0 }}>
-          <Button onClick={handleClose} variant="outlined">
-            Cancel
-          </Button>
-          {dialogMode !== 'view' && (user?.role === 'SYSTEM_ADMIN' || user?.role === 'SALES_MANAGER') && (
-            <Button onClick={handleSubmit} variant="contained" size="large">
-              {dialogMode === 'add' ? 'Create Account' : 'Update Account'}
+
+        <DialogActions sx={{ 
+          p: { xs: 2, md: 3 },
+          justifyContent: 'space-between',
+          borderTop: '1px solid',
+          borderColor: 'grey.200'
+        }}>
+          {dialogMode === 'view' ? (
+            <Button
+              variant="contained"
+              onClick={handleClose}
+              sx={{ 
+                minWidth: '120px',
+                borderRadius: 2
+              }}
+            >
+              Close
             </Button>
+          ) : (
+            <>
+              <Button
+                variant="outlined"
+                onClick={handleClose}
+                sx={{ 
+                  minWidth: '100px',
+                  borderRadius: 2
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                onClick={handleSave}
+                disabled={saveLoading}
+                startIcon={saveLoading ? <CircularProgress size={16} /> : null}
+                sx={{ 
+                  minWidth: '120px',
+                  borderRadius: 2
+                }}
+              >
+                {saveLoading ? 'Saving...' : 'Save'}
+              </Button>
+            </>
           )}
         </DialogActions>
       </Dialog>
@@ -1303,6 +1316,7 @@ const Accounts: React.FC = () => {
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert
           onClose={() => setSnackbar({ ...snackbar, open: false })}

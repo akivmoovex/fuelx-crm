@@ -13,14 +13,9 @@ model Tenant {
   name        String
   type        TenantType
   status      String   @default("active") // active, inactive, suspended
-  notes       String?  // Add this field
-  parentId    String?  // For hierarchical structure (HQ -> Sales Office)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  description String?  // Changed from 'notes' to 'description'
 
   // Relations
-  parent      Tenant?  @relation("TenantHierarchy", fields: [parentId], references: [id])
-  children    Tenant[] @relation("TenantHierarchy")
   users       User[]
   businessUnits BusinessUnit[]
   accounts    Account[]
@@ -34,8 +29,6 @@ model Tenant {
 enum TenantType {
   HQ
   SALES_OFFICE
-  ACCOUNT
-  CUSTOMER
 }
 
 // Enhanced User Model with Roles and Permissions
@@ -45,6 +38,7 @@ model User {
   lastName       String
   email          String   @unique
   password       String
+  phone          String?
   role           UserRole
   tenantId       String
   businessUnitId String?
@@ -125,14 +119,11 @@ model RolePermission {
 model BusinessUnit {
   id        String   @id @default(cuid())
   name      String
-  location  String
-  address   String
+  address   String?  // Made optional
   city      String
   state     String
   postalCode String
-  country   String
-  phone     String
-  email     String
+  country   String   @default("Zambia") // Default to Zambia
   managerId String?
   tenantId  String
   status    String   @default("active")
