@@ -4,6 +4,7 @@
   "scripts": {
     "dev": "ts-node src/index.ts",
     "start": "node dist/index.js",
+    "db": "ts-node database-manager.ts",
     "cleanup-db": "ts-node cleanup-database.ts",
     "seed-essential": "ts-node seed-essential.ts",
     "reset-db": "ts-node reset-database.ts",
