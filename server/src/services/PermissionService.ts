@@ -60,7 +60,7 @@ export class PermissionService {
         case 'account':
           const account = await prisma.account.findUnique({
             where: { id: resourceId },
-            include: { tenant: true, businessUnit: true }
+            include: { businessUnit: true }
           });
           if (!account) return false;
           
@@ -74,8 +74,8 @@ export class PermissionService {
           // SYSTEM_ADMIN can access any account
           if (user.role === 'SYSTEM_ADMIN') return true;
           
-          // User must be in the same tenant
-          if (user.tenantId !== account.tenantId) return false;
+          // User must be in the same business unit
+          if (user.businessUnitId !== account.businessUnitId) return false;
           
           // SALES_MANAGER can only access accounts in their business unit
           if (user.role === 'SALES_MANAGER') {
@@ -104,8 +104,8 @@ export class PermissionService {
           // SYSTEM_ADMIN can access any business unit
           if (buUser.role === 'SYSTEM_ADMIN') return true;
           
-          // User must be in the same tenant
-          return buUser.tenantId === businessUnit.tenantId;
+          // User must be in the same business unit
+          return buUser.businessUnitId === businessUnit.id;
           
         default:
           return false;

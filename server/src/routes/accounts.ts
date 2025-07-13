@@ -14,7 +14,7 @@ router.get('/', authenticateToken, requirePermission(PERMISSIONS.ACCOUNTS_READ),
     
     // SYSTEM_ADMIN can see all accounts, others are filtered by tenant
     if (req.user.role !== 'SYSTEM_ADMIN') {
-      where.tenantId = req.user.tenantId;
+      // Remove tenantId filtering and assignment
     }
     
     if (status && status !== 'all') {
@@ -36,9 +36,6 @@ router.get('/', authenticateToken, requirePermission(PERMISSIONS.ACCOUNTS_READ),
     const accounts = await prisma.account.findMany({
       where,
       include: {
-        tenant: {
-          select: { name: true }
-        },
         businessUnit: {
           select: { name: true, city: true }
         },
@@ -61,9 +58,6 @@ router.get('/:id', authenticateToken, requirePermission(PERMISSIONS.ACCOUNTS_REA
     const account = await prisma.account.findUnique({
       where: { id: req.params.id },
       include: {
-        tenant: {
-          select: { name: true }
-        },
         businessUnit: {
           select: { name: true, city: true }
         },
@@ -89,15 +83,12 @@ router.post('/', authenticateToken, requirePermission(PERMISSIONS.ACCOUNTS_WRITE
   try {
     const accountData = {
       ...req.body,
-      tenantId: req.body.tenantId || req.user.tenantId // Use provided tenant or user's tenant
+      // Remove tenantId from accountData
     };
 
     const account = await prisma.account.create({
       data: accountData,
       include: {
-        tenant: {
-          select: { name: true }
-        },
         businessUnit: {
           select: { name: true, city: true }
         },
@@ -121,9 +112,6 @@ router.put('/:id', authenticateToken, requirePermission(PERMISSIONS.ACCOUNTS_WRI
       where: { id: req.params.id },
       data: req.body,
       include: {
-        tenant: {
-          select: { name: true }
-        },
         businessUnit: {
           select: { name: true, city: true }
         },

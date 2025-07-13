@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Deal, Customer, User } from '../types';
 import { apiClient } from '../utils/api';
+import { formatDate } from '../utils/dateUtils';
 import {
   Container, Paper, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem, FormControl, InputLabel, Snackbar, Alert,
@@ -330,9 +331,9 @@ const Deals: React.FC = () => {
   };
 
   // Format date
-  const formatDate = (dateString: string | null) => {
+  const formatDateLocal = (dateString: string | null) => {
     if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString();
+    return formatDate(dateString);
   };
 
   const validateForm = () => {

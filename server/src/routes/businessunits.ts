@@ -35,9 +35,6 @@ router.get('/', authenticateToken, requirePermission(PERMISSIONS.BUSINESS_UNITS_
         tenant: {
           select: { name: true }
         },
-        manager: {
-          select: { firstName: true, lastName: true, email: true }
-        },
         users: {
           select: { id: true, firstName: true, lastName: true, email: true }
         },
@@ -62,9 +59,6 @@ router.get('/:id', authenticateToken, requirePermission(PERMISSIONS.BUSINESS_UNI
       include: {
         tenant: {
           select: { name: true }
-        },
-        manager: {
-          select: { firstName: true, lastName: true, email: true }
         },
         users: {
           select: { id: true, firstName: true, lastName: true, email: true, role: true }
@@ -105,9 +99,6 @@ router.post('/', authenticateToken, requirePermission(PERMISSIONS.BUSINESS_UNITS
       include: {
         tenant: {
           select: { name: true }
-        },
-        manager: {
-          select: { firstName: true, lastName: true, email: true }
         }
       }
     });
@@ -133,9 +124,6 @@ router.put('/:id', authenticateToken, requirePermission(PERMISSIONS.BUSINESS_UNI
       include: {
         tenant: {
           select: { name: true }
-        },
-        manager: {
-          select: { firstName: true, lastName: true, email: true }
         }
       }
     });

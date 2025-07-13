@@ -12,6 +12,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { apiClient } from '../utils/api';
+import { formatDate } from '../utils/dateUtils';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -233,13 +234,13 @@ const Profile: React.FC = () => {
           }}>
             <CardContent>
               <Box display="flex" alignItems="center">
-                <Email sx={{ fontSize: 40, mr: 2 }} />
+                <Business sx={{ fontSize: 40, mr: 2 }} />
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                    {settings.emailNotifications ? 'Enabled' : 'Disabled'}
+                    {user?.businessUnit?.tenant?.name || user?.tenant?.name || 'Not assigned'}
                   </Typography>
                   <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                    Email Notifications
+                    Tenant
                   </Typography>
                 </Box>
               </Box>
@@ -256,7 +257,7 @@ const Profile: React.FC = () => {
                 <Security sx={{ fontSize: 40, mr: 2 }} />
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                    Active
+                    {user?.status || 'Active'}
                   </Typography>
                   <Typography variant="body2" sx={{ opacity: 0.9 }}>
                     Account Status
@@ -276,7 +277,7 @@ const Profile: React.FC = () => {
                 <CalendarToday sx={{ fontSize: 40, mr: 2 }} />
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                    {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                    {formatDate(user?.createdAt)}
                   </Typography>
                   <Typography variant="body2" sx={{ opacity: 0.9 }}>
                     Member Since
@@ -424,6 +425,8 @@ const Profile: React.FC = () => {
                   <Typography variant="h6" fontWeight="bold" mb={3}>
                     Account Information
                   </Typography>
+                  
+                  {/* Role */}
                   <Box mb={3}>
                     <Typography variant="body2" color="text.secondary" mb={1}>
                       Role
@@ -435,28 +438,60 @@ const Profile: React.FC = () => {
                     />
                   </Box>
                   <Divider sx={{ my: 2 }} />
+                  
+                  {/* Status */}
                   <Box mb={3}>
                     <Typography variant="body2" color="text.secondary" mb={1}>
                       Status
                     </Typography>
-                    <Chip label="Active" color="success" size="small" />
+                    <Chip 
+                      label={user?.status || 'Active'} 
+                      color={user?.status === 'active' ? 'success' : 'error'} 
+                      size="small" 
+                    />
                   </Box>
                   <Divider sx={{ my: 2 }} />
+                  
+                  {/* Member Since */}
                   <Box mb={3}>
                     <Typography variant="body2" color="text.secondary" mb={1}>
                       Member Since
                     </Typography>
                     <Typography variant="body1" fontWeight="medium">
-                      {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                      {formatDate(user?.createdAt)}
                     </Typography>
                   </Box>
                   <Divider sx={{ my: 2 }} />
-                  <Box>
+                  
+                  {/* Last Login */}
+                  <Box mb={3}>
                     <Typography variant="body2" color="text.secondary" mb={1}>
                       Last Login
                     </Typography>
                     <Typography variant="body1" fontWeight="medium">
-                      {new Date().toLocaleDateString()}
+                      {formatDate(user?.lastLoginAt)}
+                    </Typography>
+                  </Box>
+                  <Divider sx={{ my: 2 }} />
+                  
+                  {/* Tenant */}
+                  <Box mb={3}>
+                    <Typography variant="body2" color="text.secondary" mb={1}>
+                      Tenant
+                    </Typography>
+                    <Typography variant="body1" fontWeight="medium">
+                      {user?.tenant?.name || user?.businessUnit?.tenant?.name || 'Not assigned'}
+                    </Typography>
+                  </Box>
+                  <Divider sx={{ my: 2 }} />
+                  
+                  {/* Business Unit */}
+                  <Box>
+                    <Typography variant="body2" color="text.secondary" mb={1}>
+                      Business Unit
+                    </Typography>
+                    <Typography variant="body1" fontWeight="medium">
+                      {user?.businessUnit?.name || 'Not assigned'}
                     </Typography>
                   </Box>
                 </CardContent>

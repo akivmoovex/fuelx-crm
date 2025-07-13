@@ -7,17 +7,10 @@ export interface BusinessUnit {
   state: string;
   postalCode: string;
   country: string;
-  managerId: string;
   tenantId: string;
-  status: 'active' | 'inactive';
+  status: 'active' | 'inactive' | 'suspended';
   createdAt: string;
   updatedAt: string;
-  manager?: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-  };
   tenant?: {
     id: string;
     name: string;
@@ -35,7 +28,6 @@ export interface BusinessUnitFormData {
   country: string;
   phone: string;
   email: string;
-  managerId: string;
   tenantId: string;
   status: 'active' | 'inactive';
 }
@@ -142,19 +134,24 @@ export interface User {
   firstName: string;
   lastName: string;
   email: string;
-  phone: string;
-  role: 'admin' | 'manager' | 'account_manager' | 'sales_rep' | 'support';
-  status: 'active' | 'inactive';
+  phone?: string;
+  role: string;
+  status: string;
   businessUnitId?: string;
-  department: string;
-  position: string;
-  hireDate: string;
   createdAt: string;
   updatedAt: string;
+  lastLoginAt?: string;
   businessUnit?: {
     id: string;
     name: string;
-    location: string;
+    tenant?: {
+      id: string;
+      name: string;
+    };
+  };
+  tenant?: {
+    id: string;
+    name: string;
   };
 }
 

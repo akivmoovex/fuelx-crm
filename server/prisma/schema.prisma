@@ -16,9 +16,7 @@ model Tenant {
   description String?  // Changed from 'notes' to 'description'
 
   // Relations
-  users       User[]
   businessUnits BusinessUnit[]
-  accounts    Account[]
   deals       Deal[]
   tasks       Task[]
   customers   Customer[]
@@ -41,16 +39,14 @@ model User {
   password       String
   phone          String?
   role           UserRole
-  tenantId       String
   businessUnitId String?
   status         String   @default("active")
+  lastLoginAt    DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   // Relations
-  tenant         Tenant   @relation(fields: [tenantId], references: [id])
   businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id])
-  managedUnits   BusinessUnit[] @relation("BusinessUnitManager")
   managedAccounts Account[]      @relation("AccountManager")
   deals          Deal[]
   tasks          Task[]
@@ -125,7 +121,6 @@ model BusinessUnit {
   state     String
   postalCode String
   country   String   @default("Zambia") // Default to Zambia
-  managerId String?
   tenantId  String
   status    String   @default("active")
   createdAt DateTime @default(now())
@@ -133,7 +128,6 @@ model BusinessUnit {
 
   // Relations
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  manager   User?    @relation("BusinessUnitManager", fields: [managerId], references: [id])
   users     User[]
   accounts  Account[]
 
@@ -153,10 +147,9 @@ model Account {
   postalCode       String
   country          String
   phone            String
-  email            String
+  email            String?
   website          String?
   status           String   @default("active")
-  tenantId         String
   businessUnitId   String?
   accountManagerId String?
   creditLimit      Float    @default(0)
@@ -167,7 +160,6 @@ model Account {
   updatedAt        DateTime @updatedAt
 
   // Relations
-  tenant         Tenant   @relation(fields: [tenantId], references: [id])
   businessUnit   BusinessUnit? @relation(fields: [businessUnitId], references: [id])
   accountManager User?    @relation("AccountManager", fields: [accountManagerId], references: [id])
   deals          Deal[]

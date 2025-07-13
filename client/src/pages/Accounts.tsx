@@ -160,6 +160,10 @@ const Accounts: React.FC = () => {
     setFormErrors({});
     
     if (mode === 'add') {
+      // For non-admin users, automatically set their business unit and tenant
+      const defaultBusinessUnitId = user?.role !== 'SYSTEM_ADMIN' ? user?.businessUnitId || '' : '';
+      const defaultAccountManagerId = user?.role !== 'SYSTEM_ADMIN' ? user?.id || '' : '';
+      
       setForm({
         name: '',
         type: 'company',
@@ -174,8 +178,8 @@ const Accounts: React.FC = () => {
         email: '',
         website: '',
         status: 'active',
-        businessUnitId: '',
-        accountManagerId: '',
+        businessUnitId: defaultBusinessUnitId,
+        accountManagerId: defaultAccountManagerId,
         creditLimit: 0,
         paymentTerms: 'Net 30',
         industry: '',
@@ -223,12 +227,6 @@ const Accounts: React.FC = () => {
       errors.name = 'Account name is required';
     }
 
-    if (!form.email.trim()) {
-      errors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      errors.email = 'Please enter a valid email address';
-    }
-
     if (!form.phone.trim()) {
       errors.phone = 'Phone number is required';
     }
@@ -251,6 +249,11 @@ const Accounts: React.FC = () => {
 
     if (!form.businessUnitId) {
       errors.businessUnitId = 'Business unit is required';
+    }
+
+    // Email validation (optional but if provided, must be valid)
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      errors.email = 'Please enter a valid email address';
     }
 
     setFormErrors(errors);
@@ -607,8 +610,7 @@ const Accounts: React.FC = () => {
                       )}
                     </Button>
                   </TableCell>
-                  <TableCell>Contact</TableCell>
-                  <TableCell>Industry</TableCell>
+                  <TableCell>Credit Line & Amounts</TableCell>
                   <TableCell>
                     <Button
                       onClick={() => handleSort('status')}
@@ -620,45 +622,45 @@ const Accounts: React.FC = () => {
                       )}
                     </Button>
                   </TableCell>
+                  <TableCell>Notes</TableCell>
                   <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {sortedAccounts.map((account) => (
-                  <TableRow key={account.id} hover>
+                  <TableRow 
+                    key={account.id} 
+                    hover 
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => handleOpen('view', account)}
+                  >
                     <TableCell>
-                      <Box>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                          {account.name}
-                        </Typography>
-                        <Chip
-                          label={account.type}
-                          size="small"
-                          color={getTypeColor(account.type) as any}
-                          sx={{ fontSize: '0.7rem' }}
-                        />
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Box>
-                        {account.email && (
-                          <Box display="flex" alignItems="center" mb={0.5}>
-                            <Email sx={{ fontSize: 16, mr: 0.5, color: 'text.secondary' }} />
-                            <Typography variant="body2">{account.email}</Typography>
-                          </Box>
-                        )}
-                        {account.phone && (
-                          <Box display="flex" alignItems="center">
-                            <Phone sx={{ fontSize: 16, mr: 0.5, color: 'text.secondary' }} />
-                            <Typography variant="body2">{account.phone}</Typography>
-                          </Box>
-                        )}
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {account.industry || 'N/A'}
+                      <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                        {account.name}
                       </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={account.type}
+                        size="small"
+                        color={getTypeColor(account.type) as any}
+                        sx={{ fontSize: '0.7rem' }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                          ZMW {account.creditLimit?.toLocaleString() || '0'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Credit Limit
+                        </Typography>
+                        <Box mt={0.5}>
+                          <Typography variant="body2" color="text.secondary">
+                            {account.paymentTerms || 'N/A'}
+                          </Typography>
+                        </Box>
+                      </Box>
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -668,36 +670,52 @@ const Accounts: React.FC = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      <Box display="flex" gap={1}>
-                        <Tooltip title="View Details">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleOpen('view', account)}
-                            color="primary"
-                          >
-                            <Visibility />
-                          </IconButton>
-                        </Tooltip>
+                      <Typography variant="body2" sx={{ 
+                        maxWidth: 200, 
+                        overflow: 'hidden', 
+                        textOverflow: 'ellipsis', 
+                        whiteSpace: 'nowrap' 
+                      }}>
+                        {account.notes || 'No notes'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Box display="flex" gap={0.5}>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent row click
+                            handleOpen('view', account);
+                          }}
+                          sx={{ color: 'primary.main' }}
+                          title="View Account"
+                        >
+                          <Visibility />
+                        </IconButton>
                         {(user?.role === 'SYSTEM_ADMIN' || user?.role === 'SALES_MANAGER') && (
                           <>
-                            <Tooltip title="Edit Account">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleOpen('edit', account)}
-                                color="primary"
-                              >
-                                <Edit />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Delete Account">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleDelete(account.id)}
-                                color="error"
-                              >
-                                <Delete />
-                              </IconButton>
-                            </Tooltip>
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent row click
+                                handleOpen('edit', account);
+                              }}
+                              sx={{ color: 'primary.main' }}
+                              title="Edit Account"
+                            >
+                              <Edit />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation(); // Prevent row click
+                                handleDelete(account.id);
+                              }}
+                              sx={{ color: 'error.main' }}
+                              title="Delete Account"
+                            >
+                              <Delete />
+                            </IconButton>
                           </>
                         )}
                       </Box>
@@ -778,10 +796,10 @@ const Accounts: React.FC = () => {
                   }}>
                     <Box sx={{ textAlign: 'center', flex: 1 }}>
                       <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-                        {account.industry || 'N/A'}
+                        ZMW {(account.creditLimit || 0).toLocaleString()}
                       </Typography>
                       <Typography variant="caption" color="textSecondary">
-                        Industry
+                        Credit Limit
                       </Typography>
                     </Box>
                     <Box sx={{ 
@@ -791,47 +809,26 @@ const Accounts: React.FC = () => {
                     }} />
                     <Box sx={{ textAlign: 'center', flex: 1 }}>
                       <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'secondary.main' }}>
-                        ZMW {(account.creditLimit || 0).toLocaleString()}
+                        {account.paymentTerms || 'N/A'}
                       </Typography>
                       <Typography variant="caption" color="textSecondary">
-                        Credit Limit
+                        Payment Terms
                       </Typography>
                     </Box>
                   </Box>
 
-                  <Box display="flex" gap={1} justifyContent="center">
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => handleOpen('view', account)}
-                      startIcon={<Visibility />}
-                      sx={{ flex: 1 }}
-                    >
-                      View
-                    </Button>
-                    {(user?.role === 'SYSTEM_ADMIN' || user?.role === 'SALES_MANAGER') && (
-                      <>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => handleOpen('edit', account)}
-                          startIcon={<Edit />}
-                          sx={{ flex: 1 }}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="error"
-                          onClick={() => handleDelete(account.id)}
-                          startIcon={<Delete />}
-                          sx={{ flex: 1 }}
-                        >
-                          Delete
-                        </Button>
-                      </>
-                    )}
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="body2" color="textSecondary" sx={{ 
+                      fontStyle: 'italic',
+                      maxHeight: 60,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: 'vertical'
+                    }}>
+                      {account.notes || 'No notes available'}
+                    </Typography>
                   </Box>
                 </CardContent>
               </Card>
@@ -962,30 +959,45 @@ const Accounts: React.FC = () => {
               </Box>
               
               <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth error={!!formErrors.businessUnitId}>
-                    <InputLabel>Business Unit *</InputLabel>
-                    <Select
-                      value={form.businessUnitId}
-                      onChange={(e) => setForm({ ...form, businessUnitId: e.target.value })}
-                      label="Business Unit *"
-                      disabled={dialogMode === 'view'}
-                    >
-                      <MenuItem value="">Select Business Unit</MenuItem>
-                      {businessUnits.map(bu => (
-                        <MenuItem key={bu.id} value={bu.id}>
-                          {bu.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                <Grid item xs={12} md={4}>
+                  {user?.role === 'SYSTEM_ADMIN' ? (
+                    <FormControl fullWidth error={!!formErrors.businessUnitId}>
+                      <InputLabel>Business Unit *</InputLabel>
+                      <Select
+                        value={form.businessUnitId}
+                        onChange={(e) => setForm({ ...form, businessUnitId: e.target.value })}
+                        label="Business Unit *"
+                        disabled={dialogMode === 'view'}
+                      >
+                        <MenuItem value="">Select Business Unit</MenuItem>
+                        {businessUnits.map(bu => (
+                          <MenuItem key={bu.id} value={bu.id}>
+                            {bu.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  ) : (
+                    <TextField
+                      fullWidth
+                      label="Business Unit"
+                      value={user?.businessUnit?.name || 'Not assigned'}
+                      disabled
+                      sx={{ 
+                        '& .MuiInputBase-input.Mui-disabled': {
+                          WebkitTextFillColor: 'rgba(0, 0, 0, 0.87)',
+                          backgroundColor: 'rgba(0, 0, 0, 0.04)'
+                        }
+                      }}
+                    />
+                  )}
                   {formErrors.businessUnitId && (
                     <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
                       {formErrors.businessUnitId}
                     </Typography>
                   )}
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} md={4}>
                   <FormControl fullWidth>
                     <InputLabel>Account Manager</InputLabel>
                     <Select
@@ -995,11 +1007,29 @@ const Accounts: React.FC = () => {
                       disabled={dialogMode === 'view'}
                     >
                       <MenuItem value="">Select Account Manager</MenuItem>
-                      {users.filter(u => ['SALES_REP', 'SALES_MANAGER'].includes(u.role)).map(user => (
-                        <MenuItem key={user.id} value={user.id}>
-                          {user.firstName} {user.lastName}
-                        </MenuItem>
-                      ))}
+                      {user?.role === 'SYSTEM_ADMIN' ? (
+                        // For SYSTEM_ADMIN, show all sales users
+                        users.filter(u => ['SALES_REP', 'SALES_MANAGER'].includes(u.role)).map(user => (
+                          <MenuItem key={user.id} value={user.id}>
+                            {user.firstName} {user.lastName}
+                          </MenuItem>
+                        ))
+                      ) : (
+                        // For non-admin users, show all users from the same business unit
+                        (() => {
+                          const userBusinessUnit = form.businessUnitId || user?.businessUnitId;
+                          const filteredUsers = users.filter(u => u.businessUnitId === userBusinessUnit);
+                          
+                          // If no users found with business unit filter, show all users as fallback
+                          const usersToShow = filteredUsers.length > 0 ? filteredUsers : users;
+                          
+                          return usersToShow.map(user => (
+                            <MenuItem key={user.id} value={user.id}>
+                              {user.firstName} {user.lastName} ({user.role})
+                            </MenuItem>
+                          ));
+                        })()
+                      )}
                     </Select>
                   </FormControl>
                 </Grid>
@@ -1023,19 +1053,7 @@ const Accounts: React.FC = () => {
               </Box>
               
               <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Email *"
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    disabled={dialogMode === 'view'}
-                    error={!!formErrors.email}
-                    helperText={formErrors.email}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} md={4}>
                   <TextField
                     fullWidth
                     label="Phone *"
@@ -1046,7 +1064,19 @@ const Accounts: React.FC = () => {
                     helperText={formErrors.phone}
                   />
                 </Grid>
-                <Grid item xs={12}>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Email"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    disabled={dialogMode === 'view'}
+                    error={!!formErrors.email}
+                    helperText={formErrors.email}
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
                   <TextField
                     fullWidth
                     label="Website"
@@ -1199,6 +1229,26 @@ const Accounts: React.FC = () => {
                     />
                   )}
                 </Grid>
+              </Grid>
+            </Box>
+
+            {/* Payment Terms Section */}
+            <Box sx={{
+              mb: 3,
+              p: { xs: 2, md: 3 },
+              bgcolor: 'blue.50',
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: 'blue.200'
+            }}>
+              <Box display="flex" alignItems="center" mb={2}>
+                <AttachMoney sx={{ mr: 1, color: 'blue.main' }} />
+                <Typography variant="h6" sx={{ fontWeight: 'bold', color: 'blue.main' }}>
+                  Payment Terms
+                </Typography>
+              </Box>
+              
+              <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth>
                     <InputLabel>Payment Terms</InputLabel>

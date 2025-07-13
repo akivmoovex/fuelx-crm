@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Navigate } from 'react-router-dom';
-import type { BusinessUnit } from '../types';
+import type { BusinessUnit } from '../types/index';
 import { apiClient } from '../utils/api';
 import {
   Container, Paper, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -30,21 +30,22 @@ const BusinessUnits: React.FC = () => {
   const [selectedBusinessUnit, setSelectedBusinessUnit] = useState<BusinessUnit | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Remove managerId from form state
   const [form, setForm] = useState({
     name: '',
     address: '',
     city: '',
     state: '',
     postalCode: '',
-    country: 'Zambia', // Default to Zambia
+    country: 'Zambia',
     status: 'active',
-    managerId: '',
-    tenantId: ''
+    tenantId: user?.tenantId || ''
   });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const [search, setSearch] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
   const [tenants, setTenants] = useState<any[]>([]);
+  const [userTenant, setUserTenant] = useState<any>(null);
   const [saveLoading, setSaveLoading] = useState(false);
   const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
 
@@ -87,8 +88,20 @@ const BusinessUnits: React.FC = () => {
     ]).then(([usersData, tenantsData]) => {
       setUsers(usersData);
       setTenants(tenantsData);
+      console.log('Loaded tenants:', tenantsData);
+      console.log('Tenants array length:', tenantsData.length);
+      
+      // Get user's tenant through their business unit
+      if (user?.businessUnitId) {
+        const userBusinessUnit = businessUnits.find(bu => bu.id === user.businessUnitId);
+        if (userBusinessUnit) {
+          const userTenantData = tenantsData.find(t => t.id === userBusinessUnit.tenantId);
+          setUserTenant(userTenantData);
+          console.log('User tenant:', userTenantData);
+        }
+      }
     }).catch(err => console.error('Error fetching data:', err));
-  }, []);
+  }, [businessUnits, user?.businessUnitId]);
 
   // Handle status filter change
   const handleStatusFilterChange = (newStatus: string) => {
@@ -106,16 +119,21 @@ const BusinessUnits: React.FC = () => {
     setFormErrors({});
 
     if (mode === 'add') {
+      // For SYSTEM_ADMIN, allow any tenant. For others, use their tenant
+      const defaultTenantId = user?.role === 'SYSTEM_ADMIN' ? '' : (userTenant?.id || '');
+      console.log('Setting default tenant ID:', defaultTenantId, 'for user role:', user?.role);
+      console.log('User tenant data:', userTenant);
+      console.log('Available tenants:', tenants);
+      
       setForm({
         name: '',
         address: '',
         city: '',
         state: '',
         postalCode: '',
-        country: 'Zambia', // Default to Zambia
+        country: 'Zambia',
         status: 'active',
-        managerId: '',
-        tenantId: user?.tenantId || ''
+        tenantId: defaultTenantId
       });
     } else if (businessUnit) {
       setForm({
@@ -126,7 +144,6 @@ const BusinessUnits: React.FC = () => {
         postalCode: businessUnit.postalCode || '',
         country: businessUnit.country || 'Zambia',
         status: businessUnit.status,
-        managerId: businessUnit.managerId || '',
         tenantId: businessUnit.tenantId || ''
       });
     }
@@ -148,6 +165,7 @@ const BusinessUnits: React.FC = () => {
     if (!form.city.trim()) errors.city = 'City is required';
     if (!form.state.trim()) errors.state = 'State/Province is required';
     if (!form.country.trim()) errors.country = 'Country is required';
+    if (!form.tenantId) errors.tenantId = 'Tenant is required';
     
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -467,7 +485,7 @@ const BusinessUnits: React.FC = () => {
                   <TableCell>Address</TableCell>
                   <TableCell>City</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell>Manager</TableCell>
+                  <TableCell>Tenant</TableCell>
                   <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -489,7 +507,7 @@ const BusinessUnits: React.FC = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      {businessUnit.manager ? `${businessUnit.manager.firstName} ${businessUnit.manager.lastName}` : 'No manager'}
+                      {businessUnit.tenant ? businessUnit.tenant.name : 'No tenant'}
                     </TableCell>
                     <TableCell>
                       <Box display="flex" gap={1}>
@@ -837,40 +855,44 @@ const BusinessUnits: React.FC = () => {
             </Box>
             
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Manager</InputLabel>
-                  <Select
-                    value={form.managerId}
-                    label="Manager"
-                    onChange={(e) => setForm({ ...form, managerId: e.target.value })}
-                    disabled={dialogMode === 'view'}
-                  >
-                    <MenuItem value="">No Manager</MenuItem>
-                    {users.map(user => (
-                      <MenuItem key={user.id} value={user.id}>
-                        {user.firstName} {user.lastName}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Tenant</InputLabel>
+              <Grid item xs={12}>
+                <FormControl fullWidth error={!!formErrors.tenantId}>
+                  <InputLabel>Tenant *</InputLabel>
                   <Select
                     value={form.tenantId}
-                    label="Tenant"
-                    onChange={(e) => setForm({ ...form, tenantId: e.target.value })}
-                    disabled={dialogMode === 'view'}
+                    label="Tenant *"
+                    onChange={(e) => {
+                      console.log('Tenant selected:', e.target.value);
+                      console.log('Current form state:', form);
+                      console.log('Available tenants:', tenants);
+                      setForm({ ...form, tenantId: e.target.value });
+                    }}
+                    disabled={dialogMode === 'view' || user?.role !== 'SYSTEM_ADMIN'}
                   >
-                    <MenuItem value="">No Tenant</MenuItem>
-                    {tenants.map(tenant => (
-                      <MenuItem key={tenant.id} value={tenant.id}>
-                        {tenant.name}
+                    {user?.role === 'SYSTEM_ADMIN' ? [
+                      <MenuItem key="select" value="">Select Tenant</MenuItem>,
+                      ...tenants.map(tenant => (
+                        <MenuItem key={tenant.id} value={tenant.id}>
+                          {tenant.name}
+                        </MenuItem>
+                      ))
+                    ] : (
+                      // For non-admin users, show only their tenant as disabled
+                      <MenuItem value={userTenant?.id || ''} disabled>
+                        {userTenant?.name || 'Not assigned'}
                       </MenuItem>
-                    ))}
+                    )}
                   </Select>
+                  {formErrors.tenantId && (
+                    <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
+                      {formErrors.tenantId}
+                    </Typography>
+                  )}
+                  {user?.role !== 'SYSTEM_ADMIN' && !formErrors.tenantId && (
+                    <Typography variant="caption" sx={{ mt: 0.5, display: 'block', color: 'text.secondary' }}>
+                      Business units can only be created for your assigned tenant
+                    </Typography>
+                  )}
                 </FormControl>
               </Grid>
             </Grid>

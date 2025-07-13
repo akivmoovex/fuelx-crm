@@ -9,7 +9,6 @@ declare global {
   namespace Express {
     interface Request {
       user?: any;
-      tenant?: any;
       permissions?: string[];
     }
   }
@@ -29,7 +28,6 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       include: {
-        tenant: true,
         businessUnit: true
       }
     });
@@ -56,7 +54,6 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
     const permissions = rolePermissions.map(rp => rp.permission.name);
 
     req.user = user;
-    req.tenant = user.tenant;
     req.permissions = permissions;
 
     console.log(`User ${user.email} (${user.role}) has permissions:`, permissions);

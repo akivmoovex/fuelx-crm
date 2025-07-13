@@ -128,37 +128,78 @@ export class PermissionService {
     prisma: any
   ): Promise<boolean> {
     try {
+      console.log(`🔍 Checking access for user ${userId} to ${resourceType} ${resourceId}`);
+      
       switch (resourceType) {
         case 'account':
           const account = await prisma.account.findUnique({
             where: { id: resourceId },
-            include: { tenant: true, businessUnit: true }
+            include: { 
+              businessUnit: {
+                include: {
+                  tenant: true
+                }
+              }
+            }
           });
-          if (!account) return false;
+          if (!account) {
+            console.log('❌ Account not found');
+            return false;
+          }
+          
+          console.log(`📋 Account: ${account.name}, BU: ${account.businessUnit?.name}, Tenant: ${account.businessUnit?.tenant?.name}`);
           
           // Check if user can access this account
           const user = await prisma.user.findUnique({
-            where: { id: userId }
+            where: { id: userId },
+            include: {
+              businessUnit: {
+                include: {
+                  tenant: true
+                }
+              }
+            }
           });
           
-          if (!user) return false;
+          if (!user) {
+            console.log('❌ User not found');
+            return false;
+          }
+          
+          console.log(`👤 User: ${user.email} (${user.role}), BU: ${user.businessUnit?.name}, Tenant: ${user.businessUnit?.tenant?.name}`);
           
           // SYSTEM_ADMIN can access any account
-          if (user.role === 'SYSTEM_ADMIN') return true;
+          if (user.role === 'SYSTEM_ADMIN') {
+            console.log('✅ SYSTEM_ADMIN access granted');
+            return true;
+          }
           
-          // User must be in the same tenant
-          if (user.tenantId !== account.tenantId) return false;
+          // User must be in the same tenant (through business unit)
+          const sameTenant = user.businessUnit?.tenantId === account.businessUnit?.tenantId;
+          console.log(`🏢 Tenant check: ${sameTenant ? '✅' : '❌'} Same tenant`);
+          if (!sameTenant) return false;
           
           // SALES_MANAGER can only access accounts in their business unit
           if (user.role === 'SALES_MANAGER') {
-            return user.businessUnitId === account.businessUnitId;
+            const sameBusinessUnit = user.businessUnitId === account.businessUnitId;
+            console.log(`🏢 Business unit check: ${sameBusinessUnit ? '✅' : '❌'} Same business unit`);
+            return sameBusinessUnit;
           }
           
           // SALES_REP can only access accounts they manage
           if (user.role === 'SALES_REP') {
-            return account.accountManagerId === userId;
+            const isManager = account.accountManagerId === userId;
+            console.log(`👤 Manager check: ${isManager ? '✅' : '❌'} Is account manager`);
+            return isManager;
           }
           
+          // HQ_ADMIN can access any account in their tenant
+          if (user.role === 'HQ_ADMIN') {
+            console.log('✅ HQ_ADMIN access granted (same tenant)');
+            return true; // Already checked tenant access above
+          }
+          
+          console.log('❌ No matching role found');
           return false;
           
         case 'businessUnit':

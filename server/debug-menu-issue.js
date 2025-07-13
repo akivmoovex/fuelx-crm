@@ -4,96 +4,87 @@ const prisma = new PrismaClient();
 
 async function debugMenuIssue() {
   try {
-    console.log('=== Debugging Menu Issue ===\n');
+    console.log('=== Menu Debug Analysis ===\n');
     
-    // Check menu items
+    // Get all users
+    const users = await prisma.user.findMany({
+      include: {
+        businessUnit: {
+          include: { tenant: true }
+        }
+      }
+    });
+    
+    console.log('👥 All Users:');
+    users.forEach(user => {
+      console.log(`- ${user.email} (${user.role}) - BU: ${user.businessUnit?.name || 'None'}, Tenant: ${user.businessUnit?.tenant?.name || 'None'}`);
+    });
+    
+    // Get all menu items
     const menuItems = await prisma.menuItem.findMany({
       include: {
-        roleMenuItems: true
+        roleMenuItems: true,
+        tenant: true
       }
     });
     
-    console.log('Menu Items:');
+    console.log('\n📋 All Menu Items:');
     menuItems.forEach(item => {
-      console.log(`- ${item.name || 'unnamed'} (${item.path})`);
-    });
-    
-    // Check specific users
-    const users = await prisma.user.findMany({
-      where: {
-        email: {
-          in: ['rep@fuelx.com', 'manager@fuelx.com', 'admin@fuelx.com']
-        }
-      },
-      select: {
-        email: true,
-        role: true
-      }
-    });
-    
-    console.log('\n=== Users ===');
-    users.forEach(user => {
-      console.log(`${user.email} (${user.role})`);
-    });
-    
-    // Check role permissions
-    console.log('\n=== Role Permissions ===');
-    const rolePermissions = await prisma.rolePermission.findMany({
-      where: {
-        role: {
-          in: ['SALES_MANAGER', 'SALES_REP', 'SYSTEM_ADMIN']
-        }
-      },
-      include: {
-        permission: true
-      }
-    });
-    
-    const permissionsByRole = {};
-    rolePermissions.forEach(rp => {
-      if (!permissionsByRole[rp.role]) {
-        permissionsByRole[rp.role] = [];
-      }
-      if (rp.granted) {
-        permissionsByRole[rp.role].push(rp.permission.name);
-      }
-    });
-    
-    Object.entries(permissionsByRole).forEach(([role, permissions]) => {
-      console.log(`${role}: ${permissions.length} permissions`);
-    });
-    
-    // Check menu visibility for specific roles
-    console.log('\n=== Menu Visibility by Role ===');
-    const roleMenuItems = await prisma.roleMenuItem.findMany({
-      where: {
-        role: {
-          in: ['SALES_MANAGER', 'SALES_REP', 'SYSTEM_ADMIN']
-        }
-      },
-      include: {
-        menuItem: true
-      }
-    });
-    
-    const menuByRole = {};
-    roleMenuItems.forEach(rmi => {
-      if (!menuByRole[rmi.role]) {
-        menuByRole[rmi.role] = [];
-      }
-      menuByRole[rmi.role].push({
-        name: rmi.menuItem.name || 'unnamed',
-        path: rmi.menuItem.path,
-        visible: rmi.isVisible
+      console.log(`- ${item.label} (${item.path}) - Tenant: ${item.tenant?.name || 'Global'}`);
+      item.roleMenuItems.forEach(rmi => {
+        console.log(`  - ${rmi.role}: Visible=${rmi.isVisible}, Enabled=${rmi.isEnabled}`);
       });
     });
     
-    Object.entries(menuByRole).forEach(([role, items]) => {
-      console.log(`\n${role}:`);
-      items.forEach(item => {
-        console.log(`  ${item.name} (${item.path}): ${item.visible ? 'Visible' : 'Hidden'}`);
+    // Test for a specific non-admin user
+    const testUser = users.find(u => u.role !== 'SYSTEM_ADMIN');
+    if (testUser) {
+      console.log(`\n🔍 Testing for user: ${testUser.email} (${testUser.role})`);
+      
+      let tenantId = null;
+      if (testUser.businessUnitId) {
+        const businessUnit = await prisma.businessUnit.findUnique({
+          where: { id: testUser.businessUnitId },
+          select: { tenantId: true }
+        });
+        tenantId = businessUnit?.tenantId || null;
+      }
+      
+      console.log(`Tenant ID: ${tenantId}`);
+      
+      const whereClause = {
+        isActive: true,
+        roleMenuItems: {
+          some: {
+            role: testUser.role,
+            isVisible: true,
+            isEnabled: true
+          }
+        }
+      };
+      
+      if (testUser.role === 'SYSTEM_ADMIN') {
+        whereClause.tenantId = null;
+      } else {
+        whereClause.tenantId = tenantId;
+      }
+      
+      console.log('Where clause:', JSON.stringify(whereClause, null, 2));
+      
+      const userMenuItems = await prisma.menuItem.findMany({
+        where: whereClause,
+        include: {
+          roleMenuItems: {
+            where: { role: testUser.role }
+          }
+        }
       });
-    });
+      
+      console.log(`Found ${userMenuItems.length} menu items for this user:`);
+      userMenuItems.forEach(item => {
+        console.log(`- ${item.label} (${item.path})`);
+      });
+    }
     
   } catch (error) {
     console.error('Error:', error);

@@ -12,9 +12,7 @@ router.get('/', authenticateToken, async (req, res) => {
       include: {
         _count: {
           select: {
-            users: true,
-            businessUnits: true,
-            accounts: true
+            businessUnits: true
           }
         }
       },
@@ -24,9 +22,7 @@ router.get('/', authenticateToken, async (req, res) => {
     // Transform the data to include counts
     const transformedTenants = tenants.map(tenant => ({
       ...tenant,
-      users: tenant._count.users,
-      businessUnits: tenant._count.businessUnits,
-      accounts: tenant._count.accounts
+      businessUnits: tenant._count.businessUnits
     }));
 
     console.log('Fetched tenants:', transformedTenants);
@@ -45,9 +41,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
       include: {
         _count: {
           select: {
-            users: true,
-            businessUnits: true,
-            accounts: true
+            businessUnits: true
           }
         }
       }
@@ -59,9 +53,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
     const transformedTenant = {
       ...tenant,
-      users: tenant._count.users,
-      businessUnits: tenant._count.businessUnits,
-      accounts: tenant._count.accounts
+      businessUnits: tenant._count.businessUnits
     };
 
     res.json(transformedTenant);
@@ -115,9 +107,7 @@ router.post('/', authenticateToken, requirePermission('tenants:write'), async (r
       include: {
         _count: {
           select: {
-            users: true,
-            businessUnits: true,
-            accounts: true
+            businessUnits: true
           }
         }
       }
@@ -125,9 +115,7 @@ router.post('/', authenticateToken, requirePermission('tenants:write'), async (r
 
     const transformedTenant = {
       ...tenantWithCounts,
-      users: tenantWithCounts?._count.users || 0,
-      businessUnits: tenantWithCounts?._count.businessUnits || 0,
-      accounts: tenantWithCounts?._count.accounts || 0
+      businessUnits: tenantWithCounts?._count.businessUnits || 0
     };
 
     res.status(201).json(transformedTenant);
@@ -195,9 +183,7 @@ router.put('/:id', authenticateToken, requirePermission('tenants:write'), async 
       include: {
         _count: {
           select: {
-            users: true,
-            businessUnits: true,
-            accounts: true
+            businessUnits: true
           }
         }
       }
@@ -205,9 +191,7 @@ router.put('/:id', authenticateToken, requirePermission('tenants:write'), async 
 
     const transformedTenant = {
       ...tenantWithCounts,
-      users: tenantWithCounts?._count.users || 0,
-      businessUnits: tenantWithCounts?._count.businessUnits || 0,
-      accounts: tenantWithCounts?._count.accounts || 0
+      businessUnits: tenantWithCounts?._count.businessUnits || 0
     };
 
     res.json(transformedTenant);
@@ -237,21 +221,17 @@ router.delete('/:id', authenticateToken, requirePermission('tenants:write'), asy
       include: {
         _count: {
           select: {
-            users: true,
-            businessUnits: true,
-            accounts: true
+            businessUnits: true
           }
         }
       }
     });
 
     if (relatedData && (
-      relatedData._count.users > 0 || 
-      relatedData._count.businessUnits > 0 || 
-      relatedData._count.accounts > 0
+      relatedData._count.businessUnits > 0
     )) {
       return res.status(400).json({ 
-        error: 'Cannot delete tenant with existing users, business units, or accounts' 
+        error: 'Cannot delete tenant with existing business units' 
       });
     }
 

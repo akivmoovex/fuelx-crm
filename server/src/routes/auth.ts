@@ -18,11 +18,10 @@ router.post('/login', async (req, res) => {
     console.log('Login attempt:', { email: req.body.email });
     const { email, password } = req.body;
 
-    // Find user with tenant and business unit info
+    // Find user with business unit info only
     const user = await prisma.user.findUnique({
       where: { email },
       include: {
-        tenant: true,
         businessUnit: true
       }
     });
@@ -31,18 +30,18 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Check if user has a tenant assigned
-    if (!user.tenantId) {
-      console.error(`User ${email} has no tenant assigned`);
-      return res.status(500).json({ 
-        error: 'User account configuration error. Please contact administrator.' 
-      });
-    }
-
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+
+    // Update last login time
+    console.log('Updating last login time for user:', user.id);
+    const updateResult = await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() }
+    });
+    console.log('Last login update result:', updateResult.lastLoginAt);
 
     // Get user permissions
     const permissions = await PermissionService.getUserPermissions(user.id, prisma);
@@ -53,7 +52,6 @@ router.post('/login', async (req, res) => {
         userId: user.id, 
         email: user.email, 
         role: user.role,
-        tenantId: user.tenantId,
         businessUnitId: user.businessUnitId,
         permissions 
       },
@@ -61,8 +59,23 @@ router.post('/login', async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    // Return user data without password
-    const { password: _, ...userWithoutPassword } = user;
+    // Get updated user data without password
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: {
+        businessUnit: {
+          select: { 
+            name: true, 
+            city: true,
+            tenant: {
+              select: { id: true, name: true }
+            }
+          }
+        }
+      }
+    });
+
+    const { password: _, ...userWithoutPassword } = updatedUser!;
 
     res.json({
       token,
@@ -90,10 +103,30 @@ router.get('/me', authenticateToken, async (req, res) => {
       return res.status(401).json({ error: 'User not found' });
     }
 
+    // Get complete user data from database
+    const currentUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: {
+        businessUnit: {
+          select: { 
+            name: true, 
+            city: true,
+            tenant: {
+              select: { id: true, name: true }
+            }
+          }
+        }
+      }
+    });
+
+    if (!currentUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
     // Get user permissions
     const permissions = await prisma.rolePermission.findMany({
       where: { 
-        role: user.role,
+        role: currentUser.role,
         granted: true
       },
       include: {
@@ -103,23 +136,14 @@ router.get('/me', authenticateToken, async (req, res) => {
 
     const permissionNames = permissions.map(rp => rp.permission.name);
 
-    const userResponse = {
-      id: user.id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      role: user.role,
-      tenantId: user.tenantId,
-      businessUnitId: user.businessUnitId,
-      status: user.status,
-      permissions: permissionNames,
-      tenant: user.tenant,
-      businessUnit: user.businessUnit
-    };
+    // Return complete user data without password
+    const { password: _, ...userWithoutPassword } = currentUser;
 
     res.json({
-      user: userResponse,
-      tenant: user.tenant
+      user: {
+        ...userWithoutPassword,
+        permissions: permissionNames
+      }
     });
   } catch (error) {
     console.error('Get user error:', error);

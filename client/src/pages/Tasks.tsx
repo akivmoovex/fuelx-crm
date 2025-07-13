@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Task } from '../types';
 import { apiClient } from '../utils/api';
+import { formatDate } from '../utils/dateUtils';
 import {
   Container, Paper, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem, FormControl, InputLabel, Snackbar, Alert,
@@ -497,7 +498,7 @@ const Tasks: React.FC = () => {
                     <Box display="flex" alignItems="center">
                       <CalendarToday sx={{ fontSize: 16, mr: 0.5, color: 'text.secondary' }} />
                       <Typography variant="body2">
-                        {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'No due date'}
+                        {formatDate(task.dueDate)}
                       </Typography>
                     </Box>
                   </TableCell>

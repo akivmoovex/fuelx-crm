@@ -37,11 +37,14 @@ router.get('/', authenticateToken, requirePermission(PERMISSIONS.USERS_READ), as
     const users = await prisma.user.findMany({
       where,
       include: {
-        tenant: {
-          select: { name: true }
-        },
         businessUnit: {
-          select: { name: true, city: true }
+          select: { 
+            name: true, 
+            city: true,
+            tenant: {
+              select: { id: true, name: true }
+            }
+          }
         }
       }
     });
@@ -59,14 +62,14 @@ router.get('/:id', authenticateToken, requirePermission(PERMISSIONS.USERS_READ),
     const user = await prisma.user.findUnique({
       where: { id: req.params.id },
       include: {
-        tenant: {
-          select: { name: true }
-        },
         businessUnit: {
-          select: { name: true, city: true }
-        },
-        managedUnits: {
-          select: { name: true, city: true }
+          select: { 
+            name: true, 
+            city: true,
+            tenant: {
+              select: { id: true, name: true }
+            }
+          }
         }
       }
     });
@@ -99,14 +102,17 @@ router.post('/', authenticateToken, requirePermission(PERMISSIONS.USERS_WRITE), 
       data: {
         ...userData,
         password: hashedPassword,
-        tenantId: userData.tenantId || req.user.tenantId // Use provided tenant or user's tenant
+        businessUnitId: userData.businessUnitId || req.user.businessUnitId // Use provided businessUnit or user's businessUnit
       },
       include: {
-        tenant: {
-          select: { name: true }
-        },
         businessUnit: {
-          select: { name: true, city: true }
+          select: { 
+            name: true, 
+            city: true,
+            tenant: {
+              select: { id: true, name: true }
+            }
+          }
         }
       }
     });
@@ -142,11 +148,14 @@ router.put('/:id', authenticateToken, requirePermission(PERMISSIONS.USERS_WRITE)
       where: { id: req.params.id },
       data: updateData,
       include: {
-        tenant: {
-          select: { name: true }
-        },
         businessUnit: {
-          select: { name: true, city: true }
+          select: { 
+            name: true, 
+            city: true,
+            tenant: {
+              select: { id: true, name: true }
+            }
+          }
         }
       }
     });
@@ -172,8 +181,7 @@ router.delete('/:id', authenticateToken, requirePermission(PERMISSIONS.USERS_DEL
     const existingUser = await prisma.user.findUnique({
       where: { id: req.params.id },
       include: {
-        managedUnits: { select: { id: true, name: true } },
-        managedAccounts: { select: { id: true, name: true } }
+        businessUnit: { select: { id: true, name: true } }
       }
     });
 
@@ -182,18 +190,14 @@ router.delete('/:id', authenticateToken, requirePermission(PERMISSIONS.USERS_DEL
     }
 
     // Check if user is managing any business units or accounts
-    const isManagingBusinessUnit = existingUser.managedUnits.length > 0;
-    const hasManagedAccounts = existingUser.managedAccounts.length > 0;
+    const isManagingBusinessUnit = existingUser.businessUnit !== null;
     
-    if (isManagingBusinessUnit || hasManagedAccounts) {
+    if (isManagingBusinessUnit) {
       let errorMessage = 'Cannot delete user because they have:';
       if (isManagingBusinessUnit) {
-        errorMessage += ` ${existingUser.managedUnits.length} managed business unit(s)`;
+        errorMessage += ` ${existingUser.businessUnit.name} business unit`;
       }
-      if (hasManagedAccounts) {
-        errorMessage += ` ${existingUser.managedAccounts.length} managed account(s)`;
-      }
-      errorMessage += '. Please reassign or delete these items first.';
+      errorMessage += '. Please reassign or delete this item first.';
       
       return res.status(400).json({ error: errorMessage });
     }

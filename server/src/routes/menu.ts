@@ -10,24 +10,40 @@ const prisma = new PrismaClient();
 router.get('/my-menu', authenticateToken, async (req, res) => {
   try {
     const userRole = req.user.role;
-    const tenantId = req.user.tenantId;
+    
+    // SYSTEM_ADMIN should only see global menu items
+    // Other users should see tenant-specific menu items from their business unit
+    let tenantId = null;
+    if (userRole !== 'SYSTEM_ADMIN' && req.user.businessUnitId) {
+      const businessUnit = await prisma.businessUnit.findUnique({
+        where: { id: req.user.businessUnitId },
+        select: { tenantId: true }
+      });
+      tenantId = businessUnit?.tenantId || null;
+    }
+
+    // Build the where clause based on user role
+    const whereClause: any = {
+      isActive: true,
+      roleMenuItems: {
+        some: {
+          role: userRole,
+          isVisible: true,
+          isEnabled: true
+        }
+      }
+    };
+
+    // SYSTEM_ADMIN sees only global items, others see tenant-specific items
+    if (userRole === 'SYSTEM_ADMIN') {
+      whereClause.tenantId = null; // Only global menu items
+    } else {
+      whereClause.tenantId = tenantId; // Only tenant-specific menu items
+    }
 
     // Get menu items visible to this role
     const menuItems = await prisma.menuItem.findMany({
-      where: {
-        isActive: true,
-        OR: [
-          { tenantId: null }, // Global menu items
-          { tenantId: tenantId } // Tenant-specific menu items
-        ],
-        roleMenuItems: {
-          some: {
-            role: userRole,
-            isVisible: true,
-            isEnabled: true
-          }
-        }
-      },
+      where: whereClause,
       include: {
         roleMenuItems: {
           where: { role: userRole }

@@ -15,6 +15,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { Deal, Account, Task, User } from '../types';
+import { formatDate } from '../utils/dateUtils';
 
 interface DashboardData {
   summary: {
@@ -406,7 +407,7 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const formatDate = (dateString: string | null) => {
+  const formatRelativeDate = (dateString: string | null) => {
     if (!dateString) return 'No due date';
     const date = new Date(dateString);
     const now = new Date();
@@ -697,7 +698,7 @@ const Dashboard: React.FC = () => {
                         {task.title}
                       </Typography>
                       <Typography variant="body2" color="textSecondary">
-                        {formatDate(task.dueDate)} • {task.priority}
+                        {formatRelativeDate(task.dueDate)} • {task.priority}
                       </Typography>
                     </Box>
                   ))}
@@ -797,7 +798,7 @@ const Dashboard: React.FC = () => {
                 {task.title}
               </Typography>
               <Typography variant="body2" color="textSecondary">
-                {formatDate(task.dueDate)} • {task.priority}
+                                        {formatRelativeDate(task.dueDate)} • {task.priority}
               </Typography>
             </Box>
           ))}

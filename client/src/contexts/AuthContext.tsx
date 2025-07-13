@@ -6,18 +6,33 @@ interface User {
   firstName: string;
   lastName: string;
   email: string;
+  phone?: string;
   role: string;
-  tenantId: string;
+  status: string;
   businessUnitId?: string;
+  createdAt: string;
+  updatedAt: string;
+  lastLoginAt?: string;
   permissions: string[];
-  tenant?: Tenant;
+  businessUnit?: {
+    id: string;
+    name: string;
+    tenant?: {
+      id: string;
+      name: string;
+    };
+  };
+  tenant?: {
+    id: string;
+    name: string;
+  };
 }
 
 interface Tenant {
   id: string;
   name: string;
-  type: string;
-  status: string;
+  type?: string;
+  status?: string;
 }
 
 interface AuthContextType {
@@ -40,13 +55,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const data = await apiClient.post<{
         token: string;
-        user: User & { tenant: Tenant };
+        user: User;
         permissions: string[];
       }>('/api/auth/login', { email, password });
 
       localStorage.setItem('token', data.token);
       setUser(data.user);
-      setTenant(data.user.tenant);
+      setTenant(data.user.tenant || data.user.businessUnit?.tenant || null);
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -68,10 +83,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const token = localStorage.getItem('token');
     if (token) {
       // Verify token and get user data
-      apiClient.get<{ user: User & { tenant: Tenant }; tenant: Tenant }>('/api/auth/me')
+      apiClient.get<{ user: User }>('/api/auth/me')
         .then(data => {
           setUser(data.user);
-          setTenant(data.tenant);
+          setTenant(data.user.tenant || data.user.businessUnit?.tenant || null);
         })
         .catch(() => {
           localStorage.removeItem('token');
