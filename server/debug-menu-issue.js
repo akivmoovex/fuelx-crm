@@ -27,14 +27,13 @@ async function debugMenuIssue() {
       },
       select: {
         email: true,
-        role: true,
-        permissions: true
+        role: true
       }
     });
     
-    console.log('\n=== User Permissions ===');
+    console.log('\n=== Users ===');
     users.forEach(user => {
-      console.log(`${user.email} (${user.role}): ${user.permissions?.length || 0} permissions`);
+      console.log(`${user.email} (${user.role})`);
     });
     
     // Check role permissions
