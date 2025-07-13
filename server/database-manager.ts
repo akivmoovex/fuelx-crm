@@ -25,6 +25,12 @@ async function main() {
       case 'setup':
         await setupDefaultTenant();
         break;
+      case 'seed-menu':
+        await seedDefaultMenuItems();
+        break;
+      case 'recreate-menu':
+        await clearAndRecreateRoleMenuItems();
+        break;
       case 'fix-permissions':
         await fixPermissionMismatch();
         break;
@@ -61,6 +67,8 @@ FuelX Database Manager - Available Commands:
   cleanup            - Clean database (keeps system admin and default tenant)
   seed               - Seed essential data (permissions, roles, etc.)
   setup              - Setup default tenant and system admin user
+  seed-menu          - Seed default menu items with role configurations
+  recreate-menu      - Clear and recreate role menu items with exact configuration
   fix-permissions    - Fix permission mismatches between client and server
   check-permissions  - Check and display current permissions
   check-accounts     - Check accounts state and issues
@@ -72,6 +80,7 @@ Examples:
   npm run db reset
   npm run db cleanup
   npm run db setup
+  npm run db seed-menu
   npm run db stats
 `);
 }
@@ -789,6 +798,325 @@ async function showDatabaseStats() {
 
   } catch (error) {
     console.error('Error getting database stats:', error);
+    throw error;
+  }
+}
+
+async function seedDefaultMenuItems() {
+  console.log('Seeding default menu items...');
+
+  try {
+    // Get the default tenant
+    const defaultTenant = await prisma.tenant.findFirst({
+      where: { name: 'FuelX HQ' }
+    });
+
+    if (!defaultTenant) {
+      console.log('No default tenant found. Please run setup first.');
+      return;
+    }
+
+    // Default menu items configuration
+    const defaultMenuItems = [
+      {
+        label: 'Dashboard',
+        path: '/dashboard',
+        icon: 'DashboardIcon',
+        order: 0,
+        roleConfigurations: [
+          { role: 'SYSTEM_ADMIN' as const, isVisible: true, isEnabled: true, order: 0 },
+          { role: 'HQ_ADMIN' as const, isVisible: true, isEnabled: true, order: 0 },
+          { role: 'MARKETING_MANAGER' as const, isVisible: true, isEnabled: true, order: 0 },
+          { role: 'FINANCE_MANAGER' as const, isVisible: true, isEnabled: true, order: 0 },
+          { role: 'ACCOUNT_MANAGER' as const, isVisible: true, isEnabled: true, order: 0 },
+          { role: 'TENANT_ADMIN' as const, isVisible: true, isEnabled: true, order: 0 },
+          { role: 'SALES_MANAGER' as const, isVisible: true, isEnabled: true, order: 0 },
+          { role: 'SALES_REP' as const, isVisible: true, isEnabled: true, order: 0 },
+          { role: 'SUPPORT' as const, isVisible: true, isEnabled: true, order: 0 }
+        ]
+      },
+      {
+        label: 'Tenant',
+        path: '/tenant',
+        icon: 'StorefrontIcon',
+        order: 1,
+        roleConfigurations: [
+          { role: 'SYSTEM_ADMIN' as const, isVisible: true, isEnabled: true, order: 1 },
+          { role: 'HQ_ADMIN' as const, isVisible: false, isEnabled: false, order: 0 },
+          { role: 'MARKETING_MANAGER' as const, isVisible: false, isEnabled: false, order: 0 },
+          { role: 'FINANCE_MANAGER' as const, isVisible: false, isEnabled: false, order: 0 },
+          { role: 'ACCOUNT_MANAGER' as const, isVisible: false, isEnabled: false, order: 0 },
+          { role: 'TENANT_ADMIN' as const, isVisible: false, isEnabled: false, order: 0 },
+          { role: 'SALES_MANAGER' as const, isVisible: false, isEnabled: false, order: 0 },
+          { role: 'SALES_REP' as const, isVisible: false, isEnabled: false, order: 0 },
+          { role: 'SUPPORT' as const, isVisible: false, isEnabled: false, order: 0 }
+        ]
+      },
+      {
+        label: 'Business Units',
+        path: '/business-units',
+        icon: 'BusinessIcon',
+        order: 2,
+        roleConfigurations: [
+          { role: 'SYSTEM_ADMIN' as const, isVisible: true, isEnabled: true, order: 2 },
+          { role: 'HQ_ADMIN' as const, isVisible: true, isEnabled: true, order: 1 },
+          { role: 'MARKETING_MANAGER' as const, isVisible: false, isEnabled: false, order: 0 },
+          { role: 'FINANCE_MANAGER' as const, isVisible: false, isEnabled: false, order: 0 },
+          { role: 'ACCOUNT_MANAGER' as const, isVisible: false, isEnabled: false, order: 0 },
+          { role: 'TENANT_ADMIN' as const, isVisible: false, isEnabled: false, order: 0 },
+          { role: 'SALES_MANAGER' as const, isVisible: false, isEnabled: false, order: 0 },
+          { role: 'SALES_REP' as const, isVisible: false, isEnabled: false, order: 0 },
+          { role: 'SUPPORT' as const, isVisible: false, isEnabled: false, order: 0 }
+        ]
+      },
+      {
+        label: 'Accounts',
+        path: '/accounts',
+        icon: 'AccountCircleIcon',
+        order: 3,
+        roleConfigurations: [
+          { role: 'SYSTEM_ADMIN' as const, isVisible: true, isEnabled: true, order: 3 },
+          { role: 'HQ_ADMIN' as const, isVisible: true, isEnabled: true, order: 2 },
+          { role: 'MARKETING_MANAGER' as const, isVisible: true, isEnabled: true, order: 1 },
+          { role: 'FINANCE_MANAGER' as const, isVisible: true, isEnabled: true, order: 1 },
+          { role: 'ACCOUNT_MANAGER' as const, isVisible: true, isEnabled: true, order: 1 },
+          { role: 'TENANT_ADMIN' as const, isVisible: true, isEnabled: true, order: 1 },
+          { role: 'SALES_MANAGER' as const, isVisible: true, isEnabled: true, order: 1 },
+          { role: 'SALES_REP' as const, isVisible: true, isEnabled: true, order: 1 },
+          { role: 'SUPPORT' as const, isVisible: false, isEnabled: false, order: 0 }
+        ]
+      },
+      {
+        label: 'Customers',
+        path: '/customers',
+        icon: 'GroupIcon',
+        order: 4,
+        roleConfigurations: [
+          { role: 'SYSTEM_ADMIN' as const, isVisible: true, isEnabled: true, order: 4 },
+          { role: 'HQ_ADMIN' as const, isVisible: true, isEnabled: true, order: 3 },
+          { role: 'MARKETING_MANAGER' as const, isVisible: true, isEnabled: true, order: 2 },
+          { role: 'FINANCE_MANAGER' as const, isVisible: true, isEnabled: true, order: 2 },
+          { role: 'ACCOUNT_MANAGER' as const, isVisible: true, isEnabled: true, order: 2 },
+          { role: 'TENANT_ADMIN' as const, isVisible: true, isEnabled: true, order: 2 },
+          { role: 'SALES_MANAGER' as const, isVisible: true, isEnabled: true, order: 2 },
+          { role: 'SALES_REP' as const, isVisible: true, isEnabled: true, order: 2 },
+          { role: 'SUPPORT' as const, isVisible: true, isEnabled: true, order: 1 }
+        ]
+      },
+      {
+        label: 'Users',
+        path: '/users',
+        icon: 'PeopleIcon',
+        order: 5,
+        roleConfigurations: [
+          { role: 'SYSTEM_ADMIN' as const, isVisible: true, isEnabled: true, order: 5 },
+          { role: 'HQ_ADMIN' as const, isVisible: true, isEnabled: true, order: 4 },
+          { role: 'MARKETING_MANAGER' as const, isVisible: false, isEnabled: false, order: 0 },
+          { role: 'FINANCE_MANAGER' as const, isVisible: false, isEnabled: false, order: 0 },
+          { role: 'ACCOUNT_MANAGER' as const, isVisible: false, isEnabled: false, order: 0 },
+          { role: 'TENANT_ADMIN' as const, isVisible: false, isEnabled: false, order: 0 },
+          { role: 'SALES_MANAGER' as const, isVisible: false, isEnabled: false, order: 0 },
+          { role: 'SALES_REP' as const, isVisible: false, isEnabled: false, order: 0 },
+          { role: 'SUPPORT' as const, isVisible: false, isEnabled: false, order: 0 }
+        ]
+      },
+      {
+        label: 'Deals',
+        path: '/deals',
+        icon: 'AttachMoneyIcon',
+        order: 6,
+        roleConfigurations: [
+          { role: 'SYSTEM_ADMIN' as const, isVisible: true, isEnabled: true, order: 6 },
+          { role: 'HQ_ADMIN' as const, isVisible: true, isEnabled: true, order: 5 },
+          { role: 'MARKETING_MANAGER' as const, isVisible: true, isEnabled: true, order: 3 },
+          { role: 'FINANCE_MANAGER' as const, isVisible: true, isEnabled: true, order: 3 },
+          { role: 'ACCOUNT_MANAGER' as const, isVisible: true, isEnabled: true, order: 3 },
+          { role: 'TENANT_ADMIN' as const, isVisible: true, isEnabled: true, order: 3 },
+          { role: 'SALES_MANAGER' as const, isVisible: true, isEnabled: true, order: 3 },
+          { role: 'SALES_REP' as const, isVisible: true, isEnabled: true, order: 3 },
+          { role: 'SUPPORT' as const, isVisible: false, isEnabled: false, order: 0 }
+        ]
+      },
+      {
+        label: 'Tasks',
+        path: '/tasks',
+        icon: 'AssignmentIcon',
+        order: 7,
+        roleConfigurations: [
+          { role: 'SYSTEM_ADMIN' as const, isVisible: true, isEnabled: true, order: 7 },
+          { role: 'HQ_ADMIN' as const, isVisible: true, isEnabled: true, order: 6 },
+          { role: 'MARKETING_MANAGER' as const, isVisible: true, isEnabled: true, order: 4 },
+          { role: 'FINANCE_MANAGER' as const, isVisible: true, isEnabled: true, order: 4 },
+          { role: 'ACCOUNT_MANAGER' as const, isVisible: true, isEnabled: true, order: 4 },
+          { role: 'TENANT_ADMIN' as const, isVisible: true, isEnabled: true, order: 4 },
+          { role: 'SALES_MANAGER' as const, isVisible: true, isEnabled: true, order: 4 },
+          { role: 'SALES_REP' as const, isVisible: true, isEnabled: true, order: 4 },
+          { role: 'SUPPORT' as const, isVisible: true, isEnabled: true, order: 2 }
+        ]
+      }
+    ];
+
+    // Create menu items
+    for (const menuItemData of defaultMenuItems) {
+      const existingItem = await prisma.menuItem.findFirst({
+        where: { path: menuItemData.path }
+      });
+
+      if (!existingItem) {
+        await prisma.menuItem.create({
+          data: {
+            label: menuItemData.label,
+            path: menuItemData.path,
+            icon: menuItemData.icon,
+            order: menuItemData.order,
+            isActive: true,
+            tenantId: defaultTenant.id,
+            roleMenuItems: {
+              create: menuItemData.roleConfigurations
+            }
+          }
+        });
+        console.log(`✓ Created menu item: ${menuItemData.label}`);
+      } else {
+        console.log(`- Menu item already exists: ${menuItemData.label}`);
+      }
+    }
+
+    console.log('Default menu items seeded successfully!');
+  } catch (error) {
+    console.error('Error seeding menu items:', error);
+    throw error;
+  }
+}
+
+async function clearAndRecreateRoleMenuItems() {
+  console.log('Clearing and recreating role menu items...');
+
+  try {
+    // Clear all existing role menu items
+    await prisma.roleMenuItem.deleteMany({});
+    console.log('✓ Cleared all existing role menu items');
+
+    // Get all menu items and roles
+    const menuItems = await prisma.menuItem.findMany();
+    const roles = ['SYSTEM_ADMIN', 'HQ_ADMIN', 'MARKETING_MANAGER', 'FINANCE_MANAGER', 'ACCOUNT_MANAGER', 'TENANT_ADMIN', 'SALES_MANAGER', 'SALES_REP', 'SUPPORT'];
+
+    // Define the exact menu configuration for each role
+    const roleMenuConfig = {
+      SYSTEM_ADMIN: {
+        'Dashboard': { isVisible: true, isEnabled: true, order: 0 },
+        'Tenant': { isVisible: true, isEnabled: true, order: 1 },
+        'Business Units': { isVisible: true, isEnabled: true, order: 2 },
+        'Accounts': { isVisible: true, isEnabled: true, order: 3 },
+        'Customers': { isVisible: true, isEnabled: true, order: 4 },
+        'Users': { isVisible: true, isEnabled: true, order: 5 },
+        'Deals': { isVisible: true, isEnabled: true, order: 6 },
+        'Tasks': { isVisible: true, isEnabled: true, order: 7 }
+      },
+      HQ_ADMIN: {
+        'Dashboard': { isVisible: true, isEnabled: true, order: 0 },
+        'Tenant': { isVisible: false, isEnabled: false, order: 0 },
+        'Business Units': { isVisible: true, isEnabled: true, order: 1 },
+        'Accounts': { isVisible: true, isEnabled: true, order: 2 },
+        'Customers': { isVisible: true, isEnabled: true, order: 3 },
+        'Users': { isVisible: true, isEnabled: true, order: 4 },
+        'Deals': { isVisible: true, isEnabled: true, order: 5 },
+        'Tasks': { isVisible: true, isEnabled: true, order: 6 }
+      },
+      MARKETING_MANAGER: {
+        'Dashboard': { isVisible: true, isEnabled: true, order: 0 },
+        'Tenant': { isVisible: false, isEnabled: false, order: 0 },
+        'Business Units': { isVisible: false, isEnabled: false, order: 0 },
+        'Accounts': { isVisible: true, isEnabled: true, order: 1 },
+        'Customers': { isVisible: true, isEnabled: true, order: 2 },
+        'Users': { isVisible: false, isEnabled: false, order: 0 },
+        'Deals': { isVisible: true, isEnabled: true, order: 3 },
+        'Tasks': { isVisible: true, isEnabled: true, order: 4 }
+      },
+      FINANCE_MANAGER: {
+        'Dashboard': { isVisible: true, isEnabled: true, order: 0 },
+        'Tenant': { isVisible: false, isEnabled: false, order: 0 },
+        'Business Units': { isVisible: false, isEnabled: false, order: 0 },
+        'Accounts': { isVisible: true, isEnabled: true, order: 1 },
+        'Customers': { isVisible: true, isEnabled: true, order: 2 },
+        'Users': { isVisible: false, isEnabled: false, order: 0 },
+        'Deals': { isVisible: true, isEnabled: true, order: 3 },
+        'Tasks': { isVisible: true, isEnabled: true, order: 4 }
+      },
+      ACCOUNT_MANAGER: {
+        'Dashboard': { isVisible: true, isEnabled: true, order: 0 },
+        'Tenant': { isVisible: false, isEnabled: false, order: 0 },
+        'Business Units': { isVisible: false, isEnabled: false, order: 0 },
+        'Accounts': { isVisible: true, isEnabled: true, order: 1 },
+        'Customers': { isVisible: true, isEnabled: true, order: 2 },
+        'Users': { isVisible: false, isEnabled: false, order: 0 },
+        'Deals': { isVisible: true, isEnabled: true, order: 3 },
+        'Tasks': { isVisible: true, isEnabled: true, order: 4 }
+      },
+      TENANT_ADMIN: {
+        'Dashboard': { isVisible: true, isEnabled: true, order: 0 },
+        'Tenant': { isVisible: false, isEnabled: false, order: 0 },
+        'Business Units': { isVisible: false, isEnabled: false, order: 0 },
+        'Accounts': { isVisible: true, isEnabled: true, order: 1 },
+        'Customers': { isVisible: true, isEnabled: true, order: 2 },
+        'Users': { isVisible: false, isEnabled: false, order: 0 },
+        'Deals': { isVisible: true, isEnabled: true, order: 3 },
+        'Tasks': { isVisible: true, isEnabled: true, order: 4 }
+      },
+      SALES_MANAGER: {
+        'Dashboard': { isVisible: true, isEnabled: true, order: 0 },
+        'Tenant': { isVisible: false, isEnabled: false, order: 0 },
+        'Business Units': { isVisible: false, isEnabled: false, order: 0 },
+        'Accounts': { isVisible: true, isEnabled: true, order: 1 },
+        'Customers': { isVisible: true, isEnabled: true, order: 2 },
+        'Users': { isVisible: false, isEnabled: false, order: 0 },
+        'Deals': { isVisible: true, isEnabled: true, order: 3 },
+        'Tasks': { isVisible: true, isEnabled: true, order: 4 }
+      },
+      SALES_REP: {
+        'Dashboard': { isVisible: true, isEnabled: true, order: 0 },
+        'Tenant': { isVisible: false, isEnabled: false, order: 0 },
+        'Business Units': { isVisible: false, isEnabled: false, order: 0 },
+        'Accounts': { isVisible: true, isEnabled: true, order: 1 },
+        'Customers': { isVisible: true, isEnabled: true, order: 2 },
+        'Users': { isVisible: false, isEnabled: false, order: 0 },
+        'Deals': { isVisible: true, isEnabled: true, order: 3 },
+        'Tasks': { isVisible: true, isEnabled: true, order: 4 }
+      },
+      SUPPORT: {
+        'Dashboard': { isVisible: true, isEnabled: true, order: 0 },
+        'Tenant': { isVisible: false, isEnabled: false, order: 0 },
+        'Business Units': { isVisible: false, isEnabled: false, order: 0 },
+        'Accounts': { isVisible: false, isEnabled: false, order: 0 },
+        'Customers': { isVisible: true, isEnabled: true, order: 1 },
+        'Users': { isVisible: false, isEnabled: false, order: 0 },
+        'Deals': { isVisible: false, isEnabled: false, order: 0 },
+        'Tasks': { isVisible: true, isEnabled: true, order: 2 }
+      }
+    };
+
+    // Create role menu items for each menu item and role
+    for (const menuItem of menuItems) {
+      for (const role of roles) {
+        const config = roleMenuConfig[role as keyof typeof roleMenuConfig]?.[menuItem.label];
+        
+        if (config) {
+          await prisma.roleMenuItem.create({
+            data: {
+              role: role as any,
+              menuItemId: menuItem.id,
+              isVisible: config.isVisible,
+              isEnabled: config.isEnabled,
+              order: config.order
+            }
+          });
+        }
+      }
+    }
+
+    console.log('✓ Role menu items recreated successfully!');
+  } catch (error) {
+    console.error('Error recreating role menu items:', error);
     throw error;
   }
 }

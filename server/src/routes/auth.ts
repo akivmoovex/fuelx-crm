@@ -10,7 +10,12 @@ const prisma = new PrismaClient();
 
 // Login endpoint
 router.post('/login', async (req, res) => {
+  // Add cache control headers to prevent caching
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
   try {
+    console.log('Login attempt:', { email: req.body.email });
     const { email, password } = req.body;
 
     // Find user with tenant and business unit info
@@ -67,12 +72,17 @@ router.post('/login', async (req, res) => {
 
   } catch (error) {
     console.error('Login error:', error);
+    console.error('Error details:', error.message);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // Get current user endpoint
 router.get('/me', authenticateToken, async (req, res) => {
+  // Add cache control headers to prevent caching
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
   try {
     const user = req.user;
     

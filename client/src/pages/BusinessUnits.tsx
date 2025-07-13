@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Navigate } from 'react-router-dom';
 import type { BusinessUnit } from '../types';
 import { apiClient } from '../utils/api';
 import {
@@ -17,6 +17,12 @@ const statusOptions = ['active', 'inactive', 'suspended'];
 
 const BusinessUnits: React.FC = () => {
   const { user, hasPermission } = useAuth();
+  
+  // Role-based access control - only SYSTEM_ADMIN and HQ_ADMIN can access Business Units page
+  if (user?.role !== 'SYSTEM_ADMIN' && user?.role !== 'HQ_ADMIN') {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
   const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [open, setOpen] = useState(false);

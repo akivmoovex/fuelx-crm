@@ -9,6 +9,7 @@ import reportsRouter from './routes/reports';
 import businessUnitsRouter from './routes/businessunits';
 import accountsRouter from './routes/accounts';
 import tenantsRouter from './routes/tenants';
+import menuRouter from './routes/menu';
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use('/api/reports', reportsRouter);
 app.use('/api/business-units', businessUnitsRouter);
 app.use('/api/accounts', accountsRouter);
 app.use('/api/tenants', tenantsRouter);
+app.use('/api/menu', menuRouter);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

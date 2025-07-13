@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { apiClient } from '../utils/api';
+import { Navigate } from 'react-router-dom';
 import {
   Container, Paper, Typography, Box, Grid, Card, CardContent, CardHeader,
   Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField,
@@ -50,6 +51,11 @@ const Tenant: React.FC = () => {
     status: 'active',
     description: ''
   });
+
+  // Role-based access control - only SYSTEM_ADMIN can access Tenant page
+  if (user?.role !== 'SYSTEM_ADMIN') {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   useEffect(() => {
     fetchTenants();

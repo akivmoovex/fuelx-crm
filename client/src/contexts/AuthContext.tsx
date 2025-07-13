@@ -10,6 +10,7 @@ interface User {
   tenantId: string;
   businessUnitId?: string;
   permissions: string[];
+  tenant?: Tenant;
 }
 
 interface Tenant {
@@ -39,13 +40,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const data = await apiClient.post<{
         token: string;
-        user: User;
-        tenant: Tenant;
+        user: User & { tenant: Tenant };
+        permissions: string[];
       }>('/api/auth/login', { email, password });
 
       localStorage.setItem('token', data.token);
       setUser(data.user);
-      setTenant(data.tenant);
+      setTenant(data.user.tenant);
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -67,7 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const token = localStorage.getItem('token');
     if (token) {
       // Verify token and get user data
-      apiClient.get<{ user: User; tenant: Tenant }>('/api/auth/me')
+      apiClient.get<{ user: User & { tenant: Tenant }; tenant: Tenant }>('/api/auth/me')
         .then(data => {
           setUser(data.user);
           setTenant(data.tenant);

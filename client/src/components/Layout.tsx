@@ -20,61 +20,10 @@ import {
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import BusinessIcon from '@mui/icons-material/Business';
-import PeopleIcon from '@mui/icons-material/People';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
-import AssignmentIcon from '@mui/icons-material/Assignment';
 import AssessmentIcon from '@mui/icons-material/Assessment';
-import GroupIcon from '@mui/icons-material/Group';
-import SettingsIcon from '@mui/icons-material/Settings';
-import StorefrontIcon from '@mui/icons-material/Storefront';
 import PersonIcon from '@mui/icons-material/Person';
 import { useAuth } from '../contexts/AuthContext';
-
-const menuItems = [
-  { 
-    label: 'Dashboard', 
-    path: '/dashboard',
-    icon: <DashboardIcon />
-  },
-  { 
-    label: 'Tenant', 
-    path: '/tenant',
-    icon: <StorefrontIcon />
-  },
-  { 
-    label: 'Business Units', 
-    path: '/business-units',
-    icon: <BusinessIcon />
-  },
-  { 
-    label: 'Accounts', 
-    path: '/accounts',
-    icon: <AccountCircleIcon />
-  },
-  { 
-    label: 'Customers', 
-    path: '/customers',
-    icon: <GroupIcon />
-  },
-  { 
-    label: 'Users', 
-    path: '/users',
-    icon: <PeopleIcon />
-  },
-  { 
-    label: 'Deals', 
-    path: '/deals',
-    icon: <AttachMoneyIcon />
-  },
-  { 
-    label: 'Tasks', 
-    path: '/tasks',
-    icon: <AssignmentIcon />
-  }
-];
+import DynamicMenu from './DynamicMenu';
 
 const Layout: React.FC = () => {
   const { user, logout } = useAuth();
@@ -91,6 +40,10 @@ const Layout: React.FC = () => {
 
   const handleProfileMenuClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleDrawerClose = () => {
+    setDrawerOpen(false);
   };
 
   return (
@@ -110,25 +63,8 @@ const Layout: React.FC = () => {
             onClick={() => setDrawerOpen(true)}>
             <MenuIcon />
           </IconButton>
-          {/* Menu items (desktop) */}
-          <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 1 }}>
-            {menuItems.map(item => (
-              <Button
-                key={item.path}
-                color={location.pathname === item.path ? 'secondary' : 'inherit'}
-                component={Link}
-                to={item.path}
-                startIcon={item.icon}
-                sx={{ 
-                  fontWeight: location.pathname === item.path ? 700 : 400,
-                  minWidth: 'auto',
-                  px: 2
-                }}
-              >
-                {item.label}
-              </Button>
-            ))}
-          </Box>
+          {/* Dynamic Menu items (desktop) */}
+          <DynamicMenu variant="desktop" />
           {/* Spacer */}
           <Box sx={{ flexGrow: 1 }} />
           {/* User Profile Dropdown */}
@@ -161,7 +97,7 @@ const Layout: React.FC = () => {
           >
             <MenuItem disabled>
               <Avatar sx={{ width: 24, height: 24, mr: 1 }} src={companyLogoUrl} />
-              {user?.tenant?.name || 'Your Company'}
+              {user?.tenantId || 'Your Company'}
             </MenuItem>
             <MenuItem component={Link} to="/profile" onClick={handleProfileMenuClose}>
               <PersonIcon sx={{ mr: 1, fontSize: 20 }} />
@@ -185,39 +121,11 @@ const Layout: React.FC = () => {
       <Drawer
         anchor="left"
         open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        onClose={handleDrawerClose}
         sx={{ display: { sm: 'none' } }}
       >
-        <Box sx={{ width: 250 }} role="presentation" onClick={() => setDrawerOpen(false)}>
-          <List>
-            {menuItems.map((item, index) => (
-              <React.Fragment key={item.path}>
-                <ListItem disablePadding>
-                  <ListItemButton 
-                    component={Link} 
-                    to={item.path}
-                    selected={location.pathname === item.path}
-                    sx={{
-                      '&.Mui-selected': {
-                        backgroundColor: 'primary.main',
-                        color: 'primary.contrastText',
-                        '&:hover': {
-                          backgroundColor: 'primary.dark',
-                        }
-                      }
-                    }}
-                  >
-                    <Box sx={{ mr: 2, display: 'flex', alignItems: 'center' }}>
-                      {item.icon}
-                    </Box>
-                    <ListItemText primary={item.label} />
-                  </ListItemButton>
-                </ListItem>
-                {index === 2 && <Divider />} {/* Add divider after Tenant */}
-                {index === 4 && <Divider />} {/* Add divider after Business Units */}
-              </React.Fragment>
-            ))}
-          </List>
+        <Box sx={{ width: 250 }} role="presentation">
+          <DynamicMenu variant="mobile" onItemClick={handleDrawerClose} />
         </Box>
       </Drawer>
       <Box component="main" sx={{ flexGrow: 1, p: 3 }}>

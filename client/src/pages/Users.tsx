@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import { apiClient } from '../utils/api';
 import { useAuth } from '../contexts/AuthContext';
+import { Navigate } from 'react-router-dom';
 import {
   Container, Paper, Typography, Box, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem, FormControl, InputLabel, Snackbar, Alert,
@@ -23,6 +24,12 @@ const statusOptions = ['active', 'inactive', 'suspended'];
 
 const Users: React.FC = () => {
   const { user } = useAuth();
+  
+  // Role-based access control - only SYSTEM_ADMIN and HQ_ADMIN can access Users page
+  if (user?.role !== 'SYSTEM_ADMIN' && user?.role !== 'HQ_ADMIN') {
+    return <Navigate to="/dashboard" replace />;
+  }
+  
   const [users, setUsers] = useState<User[]>([]);
   const [businessUnits, setBusinessUnits] = useState<any[]>([]);
   const [open, setOpen] = useState(false);

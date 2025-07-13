@@ -22,6 +22,7 @@ model Tenant {
   deals       Deal[]
   tasks       Task[]
   customers   Customer[]
+  menuItems   MenuItem[]
 
   @@map("tenants")
 }
@@ -263,4 +264,42 @@ model ContactPerson {
   account Account @relation(fields: [accountId], references: [id])
 
   @@map("contact_persons")
+}
+
+// Menu Configuration System
+model MenuItem {
+  id          String   @id @default(cuid())
+  label       String
+  path        String
+  icon        String?  // Icon name (e.g., "DashboardIcon")
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  parentId    String?  // For sub-menus
+  tenantId    String?  // If tenant-specific
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  parent      MenuItem?  @relation("MenuItemParent", fields: [parentId], references: [id])
+  children    MenuItem[] @relation("MenuItemParent")
+  tenant      Tenant?    @relation(fields: [tenantId], references: [id])
+  roleMenuItems RoleMenuItem[]
+
+  @@map("menu_items")
+}
+
+model RoleMenuItem {
+  id         String   @id @default(cuid())
+  role       UserRole
+  menuItemId String
+  isVisible  Boolean  @default(true)
+  isEnabled  Boolean  @default(true)
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  // Relations
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@unique([role, menuItemId])
+  @@map("role_menu_items")
 }
