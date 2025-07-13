@@ -14,7 +14,7 @@ const app = express();
 
 // Add CORS middleware
 app.use(cors({
-  origin: 'http://localhost:5173', // Your frontend port
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   credentials: true
 }));
 
@@ -33,6 +33,7 @@ app.use('/api/business-units', businessUnitsRouter);
 app.use('/api/accounts', accountsRouter);
 app.use('/api/tenants', tenantsRouter);
 
-app.listen(3001, () => {
-  console.log('Server running on http://localhost:3001');
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
 });

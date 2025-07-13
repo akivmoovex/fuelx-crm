@@ -52,7 +52,7 @@ router.post('/login', async (req, res) => {
         businessUnitId: user.businessUnitId,
         permissions 
       },
-      process.env.JWT_SECRET || 'your-secret-key',
+      process.env.JWT_SECRET!,
       { expiresIn: '24h' }
     );
 

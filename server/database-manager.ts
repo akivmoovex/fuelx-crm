@@ -203,14 +203,11 @@ async function seedEssentialData() {
     const defaultBusinessUnit = await prisma.businessUnit.create({
       data: {
         name: 'Main Office',
-        location: 'Lusaka',
         address: '123 Main Street',
         city: 'Lusaka',
         state: 'Lusaka',
         postalCode: '10101',
         country: 'Zambia',
-        phone: '+260 123 456 789',
-        email: 'info@fuelx.com',
         status: 'active',
         tenantId: defaultTenant.id,
       }
@@ -708,13 +705,7 @@ async function checkAccounts() {
   console.log('Checking accounts state...');
 
   try {
-    const accounts = await prisma.account.findMany({
-      include: {
-        tenant: true,
-        businessUnit: true,
-        customers: true
-      }
-    });
+    const accounts = await prisma.account.findMany();
 
     console.log(`\nFound ${accounts.length} accounts:`);
     console.log('==============================');
@@ -722,9 +713,6 @@ async function checkAccounts() {
     accounts.forEach(account => {
       console.log(`\nAccount: ${account.name}`);
       console.log(`  ID: ${account.id}`);
-      console.log(`  Tenant: ${account.tenant?.name || 'N/A'}`);
-      console.log(`  Business Unit: ${account.businessUnit?.name || 'N/A'}`);
-      console.log(`  Customers: ${account.customers.length}`);
       console.log(`  Status: ${account.status}`);
     });
 
@@ -740,7 +728,6 @@ async function checkBusinessUnitsState() {
   try {
     const businessUnits = await prisma.businessUnit.findMany({
       include: {
-        tenant: true,
         users: true,
         accounts: true
       }
@@ -752,8 +739,6 @@ async function checkBusinessUnitsState() {
     businessUnits.forEach(bu => {
       console.log(`\nBusiness Unit: ${bu.name}`);
       console.log(`  ID: ${bu.id}`);
-      console.log(`  Tenant: ${bu.tenant?.name || 'N/A'}`);
-      console.log(`  Location: ${bu.location || 'N/A'}`);
       console.log(`  Users: ${bu.users.length}`);
       console.log(`  Accounts: ${bu.accounts.length}`);
       console.log(`  Status: ${bu.status}`);
